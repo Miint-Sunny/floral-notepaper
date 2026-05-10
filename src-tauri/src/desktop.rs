@@ -1062,6 +1062,7 @@ mod tests {
             note_auto_save: true,
             note_surface_auto_save: true,
             tile_color: "#f6f3ec".into(),
+            theme: "light".into(),
         };
         let next = AppConfig {
             notes_dir: "D:\\other-notes".into(),
@@ -1072,6 +1073,7 @@ mod tests {
             note_auto_save: false,
             note_surface_auto_save: false,
             tile_color: "#efe8dc".into(),
+            theme: "dark".into(),
         };
 
         assert_eq!(

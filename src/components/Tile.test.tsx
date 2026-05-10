@@ -17,7 +17,6 @@ describe("Tile", () => {
     expect(markup).not.toContain("scale(");
     expect(markup).toContain("text-[15px]");
     expect(markup).toContain("text-[14px]");
-    expect(markup).toContain("text-ink-faint/45");
     expect(markup).toContain("leading-[1.8]");
     expect(markup).toContain(">读书笔记<");
     expect(markup).toContain("满地都是六便士");
@@ -28,7 +27,6 @@ describe("Tile", () => {
     const markup = renderToStaticMarkup(<Tile content="" />);
 
     expect(markup).toContain(">空<");
-    expect(markup).toContain("text-ink-ghost/40");
   });
 
   test("uses a custom hex color instead of preset tile palettes", () => {

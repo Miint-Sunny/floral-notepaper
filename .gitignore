@@ -24,14 +24,11 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 
-## Local agent notes
+## agent文档
 PLAN.md
 PROGRESS.md
 AGENTS.md
 CLAUDE.md
-
-## Local migration backups
-src/*WPF备份*/
 
 ## IDE
 .idea/

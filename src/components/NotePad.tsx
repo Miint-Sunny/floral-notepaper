@@ -484,7 +484,7 @@ export function NotePad({
 
                 <button
                   onClick={() => void handleClose()}
-                  className="group w-7 h-7 flex items-center justify-center rounded-lg text-ink-ghost hover:bg-red-50 hover:text-red-400 transition-all duration-200 cursor-pointer"
+                  className="group w-7 h-7 flex items-center justify-center rounded-lg text-ink-ghost hover:bg-danger-bg hover:text-red-400 transition-all duration-200 cursor-pointer"
                   title="关闭"
                 >
                   <svg

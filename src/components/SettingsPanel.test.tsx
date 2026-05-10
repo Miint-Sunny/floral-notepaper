@@ -11,6 +11,7 @@ const config = {
   noteAutoSave: true,
   noteSurfaceAutoSave: true,
   tileColor: "#f6f3ec",
+  theme: "light" as const,
 };
 
 describe("SettingsPanel", () => {

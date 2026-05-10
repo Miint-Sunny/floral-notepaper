@@ -156,7 +156,7 @@ export function ContextMenuProvider({ children }: { children: React.ReactNode })
                 disabled={item.disabled}
                 className={`w-full flex items-center justify-between px-3 py-1.5 text-[12px] font-body transition-colors cursor-pointer disabled:text-ink-ghost/40 disabled:cursor-default disabled:hover:bg-transparent ${
                   "tone" in item && item.tone === "danger"
-                    ? "text-red-400 hover:bg-red-50 hover:text-red-500"
+                    ? "text-red-400 hover:bg-danger-bg hover:text-red-500"
                     : "text-ink-soft hover:bg-bamboo-mist/60 hover:text-bamboo"
                 }`}
               >

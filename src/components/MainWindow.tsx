@@ -743,7 +743,7 @@ export function MainWindow({
             </button>
             <button
               onClick={handleClose}
-              className="w-11 h-11 flex items-center justify-center text-ink-ghost hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
+              className="w-11 h-11 flex items-center justify-center text-ink-ghost hover:text-red-500 hover:bg-danger-bg transition-all cursor-pointer"
               title="关闭"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -972,7 +972,7 @@ export function MainWindow({
                 <button
                   onClick={() => void handleDeleteNote()}
                   disabled={!selectedId}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-ghost hover:text-red-400 hover:bg-red-50 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-ghost hover:text-red-400 hover:bg-danger-bg transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                   title="删除笔记"
                 >
                   <svg
@@ -1183,7 +1183,7 @@ export function MainWindow({
               onClick={() => handleNoteMenuAction(item.action)}
               className={`w-full flex items-center justify-between px-3 py-1.5 text-[12px] font-body transition-colors cursor-pointer ${
                 item.tone === "danger"
-                  ? "text-red-400 hover:bg-red-50 hover:text-red-500"
+                  ? "text-red-400 hover:bg-danger-bg hover:text-red-500"
                   : "text-ink-soft hover:bg-bamboo-mist/60 hover:text-bamboo"
               } ${index === 1 ? "border-t border-paper-deep/40 mt-1 pt-2" : ""}`}
             >

@@ -1,9 +1,10 @@
-import type { AppConfig, ViewMode } from "../features/settings/types";
+import type { AppConfig, ThemeOption, ViewMode } from "../features/settings/types";
 import { supportedShortcuts } from "../features/settings/api";
 import {
   DEFAULT_TILE_COLOR,
   normalizeTileColor,
 } from "../features/settings/tileColor";
+import { applyTheme, watchSystemTheme } from "../features/settings/theme";
 
 interface SettingsPanelProps {
   config: AppConfig;
@@ -13,6 +14,12 @@ interface SettingsPanelProps {
   onClose: () => void;
   onSave: () => void;
 }
+
+const themeOptions: Array<{ value: ThemeOption; label: string }> = [
+  { value: "light", label: "浅色" },
+  { value: "dark", label: "深色" },
+  { value: "system", label: "跟随系统" },
+];
 
 const viewModes: Array<{ value: ViewMode; label: string }> = [
   { value: "edit", label: "编辑" },
@@ -62,6 +69,32 @@ export function SettingsPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        <section className="space-y-2">
+          <label className="block text-[11px] font-body text-ink-faint">
+            主题
+          </label>
+          <div className="grid grid-cols-3 gap-1 bg-paper-warm/60 rounded-lg p-[2px] border border-paper-deep/30">
+            {themeOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  setConfigValue("theme", option.value);
+                  applyTheme(option.value);
+                  watchSystemTheme(option.value);
+                }}
+                className={`h-7 rounded-md text-[11px] transition-all cursor-pointer ${
+                  config.theme === option.value
+                    ? "bg-cloud text-bamboo font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                    : "text-ink-ghost hover:text-ink-faint"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
         <section className="space-y-2">
           <label className="block text-[11px] font-body text-ink-faint">
             笔记目录

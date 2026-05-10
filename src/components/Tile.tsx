@@ -75,8 +75,13 @@ export function Tile({
   ...divProps
 }: TileProps) {
   const tileColor = normalizeTileColor(color);
-  const borderColor = chroma.mix(tileColor, "#1a1a18", 0.18).alpha(0.3).css();
-  const cornerColor = chroma.mix(tileColor, "#1a1a18", 0.3).alpha(0.26).css();
+  const isLightBg = chroma(tileColor).luminance() > 0.18;
+  const mixTarget = isLightBg ? "#1a1a18" : "#ffffff";
+  const borderColor = chroma.mix(tileColor, mixTarget, 0.18).alpha(0.3).css();
+  const cornerColor = chroma.mix(tileColor, mixTarget, 0.3).alpha(0.26).css();
+  const titleColor = chroma.mix(tileColor, mixTarget, 0.4).alpha(0.5).css();
+  const contentColor = chroma.mix(tileColor, mixTarget, 0.65).alpha(0.85).css();
+  const emptyColor = chroma.mix(tileColor, mixTarget, 0.25).alpha(0.4).css();
   const mergedStyle: CSSProperties = {
     width,
     backgroundColor: tileColor,
@@ -94,16 +99,16 @@ export function Tile({
     >
       <div className="px-4 pt-4 pb-4 h-full overflow-y-auto scrollbar-hidden">
         {title && (
-          <div className="text-[15px] font-display text-ink-faint/45 tracking-wide mb-3 leading-snug">
+          <div className="text-[15px] font-display tracking-wide mb-3 leading-snug" style={{ color: titleColor }}>
             {title}
           </div>
         )}
         {content ? (
-          <div className="text-[14px] leading-[1.8] text-ink-soft/80 whitespace-pre-wrap font-body">
+          <div className="text-[14px] leading-[1.8] whitespace-pre-wrap font-body" style={{ color: contentColor }}>
             {content}
           </div>
         ) : (
-          <div className="text-[14px] text-ink-ghost/40 font-body text-center py-6">
+          <div className="text-[14px] font-body text-center py-6" style={{ color: emptyColor }}>
             空
           </div>
         )}
