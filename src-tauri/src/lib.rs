@@ -3,7 +3,7 @@ pub mod services;
 
 use services::notes::{default_store, AppConfig, AppError, Note, NoteMetadata, SaveNoteRequest};
 use std::path::PathBuf;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 #[tauri::command]
 fn app_name() -> &'static str {
@@ -59,6 +59,7 @@ fn config_save(app: AppHandle, config: AppConfig) -> Result<AppConfig, AppError>
         message: error.to_string(),
     })?;
     store.save_config(config.clone())?;
+    let _ = app.emit("config-changed", &config);
     Ok(config)
 }
 

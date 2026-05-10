@@ -189,6 +189,17 @@ export function NotePad({
   }, []);
 
   useEffect(() => {
+    const unlisten = listen<{ tileColor?: string }>("config-changed", (event) => {
+      if (event.payload.tileColor) {
+        setTileColor(normalizeTileColor(event.payload.tileColor));
+      }
+    });
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, []);
+
+  useEffect(() => {
     let myLabel = "";
     try {
       myLabel = getCurrentWindow().label;
