@@ -163,6 +163,28 @@ export function SettingsPanel({
 
         <section className="space-y-2">
           <label className="block text-[11px] font-body text-ink-faint">
+            编辑器字号
+          </label>
+          <div className="flex items-center gap-3 h-9 rounded-lg px-2.5 bg-paper-warm/45 border border-paper-deep/25">
+            <input
+              type="range"
+              min={12}
+              max={20}
+              step={1}
+              value={config.fontSize ?? 14}
+              onChange={(event) =>
+                setConfigValue("fontSize", Number(event.target.value))
+              }
+              className="flex-1 h-1 accent-bamboo cursor-pointer"
+            />
+            <span className="text-[12px] font-mono text-ink-soft tabular-nums w-8 text-right">
+              {config.fontSize ?? 14}px
+            </span>
+          </div>
+        </section>
+
+        <section className="space-y-2">
+          <label className="block text-[11px] font-body text-ink-faint">
             磁贴颜色
           </label>
           <div className="grid grid-cols-2 gap-1 bg-paper-warm/60 rounded-lg p-[2px] border border-paper-deep/30">

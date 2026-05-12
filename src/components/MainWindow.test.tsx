@@ -18,6 +18,7 @@ describe("MainWindow settings", () => {
           tileColor: "#f6f3ec",
           tileColorMode: "system",
           theme: "light",
+          fontSize: 14,
         }}
       />,
     );

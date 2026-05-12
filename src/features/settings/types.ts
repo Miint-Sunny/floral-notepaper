@@ -15,4 +15,5 @@ export interface AppConfig {
   tileColor: string;
   tileColorMode: TileColorMode;
   theme: ThemeOption;
+  fontSize: number;
 }

@@ -5,6 +5,7 @@ import type { Components } from "react-markdown";
 
 interface MarkdownPreviewProps {
   content: string;
+  fontSize?: number;
 }
 
 const remarkPlugins = [remarkGfm];
@@ -117,9 +118,9 @@ const components: Components = {
   ),
 };
 
-export function MarkdownPreview({ content }: MarkdownPreviewProps) {
+export function MarkdownPreview({ content, fontSize = 14 }: MarkdownPreviewProps) {
   return (
-    <div className="max-w-[560px] text-[14px] font-body">
+    <div className="max-w-[560px] font-body" style={{ fontSize: `${fontSize}px` }}>
       {content.trim() ? (
         <Markdown remarkPlugins={remarkPlugins} components={components}>
           {content}

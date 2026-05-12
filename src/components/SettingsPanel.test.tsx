@@ -13,6 +13,7 @@ const config = {
   tileColor: "#f6f3ec",
   tileColorMode: "custom" as const,
   theme: "light" as const,
+  fontSize: 14,
 };
 
 describe("SettingsPanel", () => {

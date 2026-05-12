@@ -1113,7 +1113,8 @@ export function MainWindow({
                             setContent(event.target.value);
                             markDirty();
                           }}
-                          className="w-full h-full text-[13.5px] leading-[1.9] text-ink-soft font-mono placeholder:text-ink-ghost/40"
+                          className="w-full h-full leading-[1.9] text-ink-soft font-mono placeholder:text-ink-ghost/40"
+                          style={{ fontSize: `${settingsConfig?.fontSize ?? 14}px` }}
                           placeholder="开始写作……"
                           spellCheck={false}
                           disabled={!selectedId}
@@ -1140,7 +1141,7 @@ export function MainWindow({
                           viewMode === "preview" ? "pt-3" : "pt-1"
                         }`}
                       >
-                        <MarkdownPreview content={content} />
+                        <MarkdownPreview content={content} fontSize={settingsConfig?.fontSize ?? 14} />
                       </div>
                     </div>
                   )}
