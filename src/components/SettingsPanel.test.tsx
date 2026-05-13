@@ -45,6 +45,5 @@ describe("SettingsPanel", () => {
     expect(markup).toContain("编辑");
     expect(markup).toContain("分栏");
     expect(markup).toContain("预览");
-    expect(markup).toContain("完成");
   });
 });

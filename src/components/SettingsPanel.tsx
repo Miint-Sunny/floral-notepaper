@@ -5,6 +5,7 @@ import {
   normalizeTileColor,
 } from "../features/settings/tileColor";
 import { applyTheme, watchSystemTheme } from "../features/settings/theme";
+import { SlidingButtonGroup } from "./SlidingButtonGroup";
 
 const tileColorModes: Array<{ value: TileColorMode; label: string }> = [
   { value: "system", label: "跟随主题" },
@@ -74,26 +75,15 @@ export function SettingsPanel({
           <label className="block text-[11px] font-body text-ink-faint">
             主题
           </label>
-          <div className="grid grid-cols-3 gap-1 bg-paper-warm/60 rounded-lg p-[2px] border border-paper-deep/30">
-            {themeOptions.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  setConfigValue("theme", option.value);
-                  applyTheme(option.value);
-                  watchSystemTheme(option.value);
-                }}
-                className={`h-7 rounded-md text-[11px] transition-all cursor-pointer ${
-                  config.theme === option.value
-                    ? "bg-cloud text-bamboo font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-                    : "text-ink-ghost hover:text-ink-faint"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <SlidingButtonGroup
+            options={themeOptions}
+            value={config.theme}
+            onChange={(v: ThemeOption) => {
+              setConfigValue("theme", v);
+              applyTheme(v);
+              watchSystemTheme(v);
+            }}
+          />
         </section>
 
         <section className="space-y-2">
@@ -187,22 +177,11 @@ export function SettingsPanel({
           <label className="block text-[11px] font-body text-ink-faint">
             磁贴颜色
           </label>
-          <div className="grid grid-cols-2 gap-1 bg-paper-warm/60 rounded-lg p-[2px] border border-paper-deep/30">
-            {tileColorModes.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setConfigValue("tileColorMode", option.value)}
-                className={`h-7 rounded-md text-[11px] transition-all cursor-pointer ${
-                  config.tileColorMode === option.value
-                    ? "bg-cloud text-bamboo font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-                    : "text-ink-ghost hover:text-ink-faint"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <SlidingButtonGroup
+            options={tileColorModes}
+            value={config.tileColorMode}
+            onChange={(v: TileColorMode) => setConfigValue("tileColorMode", v)}
+          />
           {config.tileColorMode === "custom" && (
             <div className="flex items-center gap-2">
               <input
@@ -238,34 +217,14 @@ export function SettingsPanel({
           <label className="block text-[11px] font-body text-ink-faint">
             默认视图
           </label>
-          <div className="grid grid-cols-3 gap-1 bg-paper-warm/60 rounded-lg p-[2px] border border-paper-deep/30">
-            {viewModes.map((mode) => (
-              <button
-                key={mode.value}
-                type="button"
-                onClick={() => setConfigValue("defaultViewMode", mode.value)}
-                className={`h-7 rounded-md text-[11px] transition-all cursor-pointer ${
-                  config.defaultViewMode === mode.value
-                    ? "bg-cloud text-bamboo font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-                    : "text-ink-ghost hover:text-ink-faint"
-                }`}
-              >
-                {mode.label}
-              </button>
-            ))}
-          </div>
+          <SlidingButtonGroup
+            options={viewModes}
+            value={config.defaultViewMode}
+            onChange={(v) => setConfigValue("defaultViewMode", v)}
+          />
         </section>
       </div>
 
-      <div className="px-4 py-3 border-t border-paper-deep/25 bg-paper/25">
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full h-8 rounded-lg bg-bamboo text-cloud text-[12px] font-body hover:bg-bamboo-light transition-colors cursor-pointer"
-        >
-          完成
-        </button>
-      </div>
     </aside>
   );
 }

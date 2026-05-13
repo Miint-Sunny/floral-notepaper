@@ -11,6 +11,7 @@ import {
 import type { AppConfig, ViewMode } from "../features/settings/types";
 import { normalizeTileColor } from "../features/settings/tileColor";
 import { SettingsPanel } from "./SettingsPanel";
+import { SlidingButtonGroup } from "./SlidingButtonGroup";
 import {
   createNote,
   deleteNote,
@@ -234,6 +235,7 @@ export function MainWindow({
   );
   const [noteTransitionKey, setNoteTransitionKey] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteExiting, setDeleteExiting] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   const selectedNote = useMemo(
@@ -975,16 +977,29 @@ export function MainWindow({
                 </button>
 
                 {deleteConfirm ? (
-                  <div className="flex items-center gap-1 ml-1">
+                  <div className={`flex items-center gap-1 ml-1 ${deleteExiting ? "animate-delete-confirm-exit" : "animate-delete-confirm"}`}>
                     <span className="text-[11px] text-red-400 whitespace-nowrap">确认删除？</span>
                     <button
-                      onClick={() => void handleDeleteNote()}
+                      onClick={() => {
+                        setDeleteExiting(true);
+                        setTimeout(() => {
+                          setDeleteExiting(false);
+                          setDeleteConfirm(false);
+                          void handleDeleteNote();
+                        }, 150);
+                      }}
                       className="px-2 h-6 rounded-md text-[11px] text-cloud bg-red-400 hover:bg-red-500 transition-colors cursor-pointer whitespace-nowrap"
                     >
                       删除
                     </button>
                     <button
-                      onClick={() => setDeleteConfirm(false)}
+                      onClick={() => {
+                        setDeleteExiting(true);
+                        setTimeout(() => {
+                          setDeleteExiting(false);
+                          setDeleteConfirm(false);
+                        }, 150);
+                      }}
                       className="px-2 h-6 rounded-md text-[11px] text-ink-faint hover:text-ink-soft hover:bg-paper-warm transition-colors cursor-pointer"
                     >
                       取消
@@ -1014,21 +1029,16 @@ export function MainWindow({
                 )}
               </div>
 
-              <div className="flex items-center bg-paper-warm/60 rounded-lg p-[2px] border border-paper-deep/30">
-                {(["edit", "split", "preview"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setViewMode(mode)}
-                    className={`px-3 py-1 rounded-md text-[11px] transition-all duration-200 cursor-pointer ${
-                      viewMode === mode
-                        ? "bg-cloud text-bamboo font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-                        : "text-ink-ghost hover:text-ink-faint"
-                    }`}
-                  >
-                    {mode === "edit" ? "编辑" : mode === "split" ? "分栏" : "预览"}
-                  </button>
-                ))}
-              </div>
+              <SlidingButtonGroup
+                options={[
+                  { value: "edit" as ViewMode, label: "编辑" },
+                  { value: "split" as ViewMode, label: "分栏" },
+                  { value: "preview" as ViewMode, label: "预览" },
+                ]}
+                value={viewMode}
+                onChange={setViewMode}
+                buttonClassName="px-3 py-1"
+              />
             </div>
 
             <div key={noteTransitionKey} className="animate-note-enter px-6 pt-4 pb-2 shrink-0 border-b border-paper-deep/15">
@@ -1059,7 +1069,8 @@ export function MainWindow({
                 </span>
                 <span className="text-[10px] text-ink-ghost/40">·</span>
                 <span
-                  className={`text-[10px] font-mono tabular-nums ${
+                  key={saveState}
+                  className={`text-[10px] font-mono tabular-nums animate-status-fade ${
                     saveState === "error"
                       ? "text-red-400"
                       : saveState === "dirty"
