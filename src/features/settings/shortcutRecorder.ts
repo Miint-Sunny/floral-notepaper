@@ -1,5 +1,15 @@
 import { parseHotkey, type Hotkey } from "@tanstack/react-hotkeys";
 
+const KEY_DISPLAY_NAMES: Record<string, string> = {
+  Control: "Ctrl",
+  Meta: "Win",
+  Backspace: "←",
+  ArrowUp: "↑",
+  ArrowDown: "↓",
+  ArrowLeft: "←",
+  ArrowRight: "→",
+};
+
 export function hotkeyToConfigString(hotkey: Hotkey): string {
   const parsed = parseHotkey(hotkey, "windows");
   const parts: string[] = [];
@@ -13,4 +23,25 @@ export function hotkeyToConfigString(hotkey: Hotkey): string {
 export function isValidGlobalShortcut(hotkey: Hotkey): boolean {
   const parsed = parseHotkey(hotkey, "windows");
   return parsed.ctrl || parsed.alt;
+}
+
+export function formatHeldKeys(keys: string[]): string {
+  const modifierOrder = ["Control", "Alt", "Shift", "Meta"];
+  const modifiers: string[] = [];
+  const others: string[] = [];
+
+  for (const key of keys) {
+    if (modifierOrder.includes(key)) {
+      modifiers.push(key);
+    } else {
+      others.push(key);
+    }
+  }
+
+  modifiers.sort(
+    (a, b) => modifierOrder.indexOf(a) - modifierOrder.indexOf(b),
+  );
+
+  const all = [...modifiers, ...others];
+  return all.map((k) => KEY_DISPLAY_NAMES[k] ?? k).join(" + ");
 }

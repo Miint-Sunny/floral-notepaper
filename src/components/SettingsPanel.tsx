@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
-import { useHotkeyRecorder, formatForDisplay } from "@tanstack/react-hotkeys";
+import { useHotkeyRecorder, useHeldKeys } from "@tanstack/react-hotkeys";
 import type { AppConfig, ThemeOption, TileColorMode, ViewMode } from "../features/settings/types";
 import {
+  formatHeldKeys,
   hotkeyToConfigString,
   isValidGlobalShortcut,
 } from "../features/settings/shortcutRecorder";
@@ -294,6 +295,7 @@ function ShortcutRecorder({ value, onChange }: ShortcutRecorderProps) {
       }
     },
   });
+  const heldKeys = useHeldKeys();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -310,9 +312,9 @@ function ShortcutRecorder({ value, onChange }: ShortcutRecorderProps) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [recorder.isRecording, recorder.cancelRecording]);
 
-  const preview =
-    recorder.isRecording && recorder.recordedHotkey
-      ? formatForDisplay(recorder.recordedHotkey, { platform: "windows" })
+  const liveDisplay =
+    recorder.isRecording && heldKeys.length > 0
+      ? formatHeldKeys(heldKeys)
       : null;
 
   return (
@@ -326,7 +328,9 @@ function ShortcutRecorder({ value, onChange }: ShortcutRecorderProps) {
             : "bg-paper-warm/70 border-paper-deep/40 text-ink-soft hover:border-paper-deep/60"
         }`}
       >
-        <span>{recorder.isRecording ? preview || "按下快捷键..." : value}</span>
+        <span>
+          {recorder.isRecording ? liveDisplay || "按下快捷键..." : value}
+        </span>
         {recorder.isRecording ? (
           <span className="text-[10px] text-ink-faint">按 Esc 取消</span>
         ) : (
