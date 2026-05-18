@@ -1,6 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { useHotkeyRecorder, formatForDisplay } from "@tanstack/react-hotkeys";
 import type { AppConfig, ThemeOption, TileColorMode, ViewMode } from "../features/settings/types";
-import { supportedShortcuts } from "../features/settings/api";
+import {
+  hotkeyToConfigString,
+  isValidGlobalShortcut,
+} from "../features/settings/shortcutRecorder";
 import {
   DEFAULT_TILE_COLOR,
   normalizeTileColor,
@@ -112,9 +116,8 @@ export function SettingsPanel({
           <label className="block text-[11px] font-body text-ink-faint">
             快捷键
           </label>
-          <ShortcutDropdown
+          <ShortcutRecorder
             value={config.globalShortcut}
-            options={[...supportedShortcuts]}
             onChange={(v) => setConfigValue("globalShortcut", v)}
           />
         </section>
@@ -278,74 +281,70 @@ function ToggleRow({ label, checked, onChange }: ToggleRowProps) {
   );
 }
 
-interface ShortcutDropdownProps {
+interface ShortcutRecorderProps {
   value: string;
-  options: string[];
   onChange: (value: string) => void;
 }
 
-function ShortcutDropdown({ value, options, onChange }: ShortcutDropdownProps) {
-  const [open, setOpen] = useState(false);
+function ShortcutRecorder({ value, onChange }: ShortcutRecorderProps) {
+  const recorder = useHotkeyRecorder({
+    onRecord: (hotkey) => {
+      if (isValidGlobalShortcut(hotkey)) {
+        onChange(hotkeyToConfigString(hotkey));
+      }
+    },
+  });
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!recorder.isRecording) return;
     const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        recorder.cancelRecording();
       }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
+  }, [recorder.isRecording, recorder.cancelRecording]);
+
+  const preview =
+    recorder.isRecording && recorder.recordedHotkey
+      ? formatForDisplay(recorder.recordedHotkey, { platform: "windows" })
+      : null;
 
   return (
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full h-8 px-2.5 rounded-lg bg-paper-warm/70 border border-paper-deep/40 text-[12px] text-ink-soft flex items-center justify-between cursor-pointer hover:border-paper-deep/60 transition-colors"
+        onClick={() => recorder.startRecording()}
+        className={`w-full h-8 px-2.5 rounded-lg border text-[12px] flex items-center justify-between cursor-pointer transition-colors ${
+          recorder.isRecording
+            ? "bg-bamboo-mist/40 border-bamboo text-bamboo"
+            : "bg-paper-warm/70 border-paper-deep/40 text-ink-soft hover:border-paper-deep/60"
+        }`}
       >
-        <span>{value}</span>
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 10 10"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={`text-ink-ghost transition-transform duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] ${open ? "rotate-180" : ""}`}
-        >
-          <path d="M2 3.5l3 3 3-3" />
-        </svg>
+        <span>{recorder.isRecording ? preview || "按下快捷键..." : value}</span>
+        {recorder.isRecording ? (
+          <span className="text-[10px] text-ink-faint">按 Esc 取消</span>
+        ) : (
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-ink-ghost"
+          >
+            <path d="M2 3.5l3 3 3-3" />
+          </svg>
+        )}
       </button>
-      <ul
-        className="absolute left-0 right-0 top-full mt-1 rounded-lg border border-paper-deep/30 bg-cloud/95 backdrop-blur-sm shadow-[0_4px_12px_rgba(0,0,0,0.06)] overflow-hidden z-10"
-        style={{
-          opacity: open ? 1 : 0,
-          transform: open ? "translateY(0)" : "translateY(-4px)",
-          transition: "opacity 200ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-          pointerEvents: open ? "auto" : "none",
-        }}
-      >
-        {options.map((opt) => (
-          <li key={opt} className="list-none">
-            <button
-              type="button"
-              onClick={() => { onChange(opt); setOpen(false); }}
-              className={`w-full h-8 px-2.5 text-left text-[12px] transition-colors cursor-pointer ${
-                opt === value
-                  ? "text-bamboo bg-bamboo-mist/40 font-medium"
-                  : "text-ink-soft hover:bg-paper-warm/60"
-              }`}
-            >
-              {opt}
-            </button>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
