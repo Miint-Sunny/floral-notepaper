@@ -592,6 +592,15 @@ pub fn recycle_notepad_window(app: &AppHandle, label: &str) -> Result<(), AppErr
 }
 
 fn save_surface_size(window: &tauri::WebviewWindow) {
+    let Ok(store) = default_store() else {
+        return;
+    };
+    let Ok(mut config) = store.load_config() else {
+        return;
+    };
+    if !config.remember_surface_size {
+        return;
+    }
     let Ok(size) = window.inner_size() else {
         return;
     };
@@ -602,12 +611,6 @@ fn save_surface_size(window: &tauri::WebviewWindow) {
     if w == 0 || h == 0 {
         return;
     }
-    let Ok(store) = default_store() else {
-        return;
-    };
-    let Ok(mut config) = store.load_config() else {
-        return;
-    };
     if config.surface_width == Some(w) && config.surface_height == Some(h) {
         return;
     }
@@ -687,6 +690,9 @@ fn saved_surface_specs() -> WindowSizeSpec {
     let Ok(config) = load_config() else {
         return defaults;
     };
+    if !config.remember_surface_size {
+        return defaults;
+    }
     match (config.surface_width, config.surface_height) {
         (Some(w), Some(h)) => WindowSizeSpec {
             width: (w as f64).max(defaults.min_width),
@@ -1246,6 +1252,7 @@ mod tests {
             font_size: 14,
             surface_font_size: 14,
             external_file_auto_save: true,
+            remember_surface_size: true,
             surface_width: None,
             surface_height: None,
         };
@@ -1263,6 +1270,7 @@ mod tests {
             font_size: 16,
             surface_font_size: 16,
             external_file_auto_save: true,
+            remember_surface_size: true,
             surface_width: None,
             surface_height: None,
         };

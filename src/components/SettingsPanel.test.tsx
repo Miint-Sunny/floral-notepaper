@@ -16,6 +16,7 @@ const config = {
   fontSize: 14,
   surfaceFontSize: 14,
   externalFileAutoSave: true,
+  rememberSurfaceSize: true,
 };
 
 describe("SettingsPanel", () => {
