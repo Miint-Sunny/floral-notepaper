@@ -48,6 +48,12 @@
         "name": "Markdown Document",
         "description": "Markdown document file",
         "role": "Editor"
+      },
+      {
+        "ext": ["txt"],
+        "name": "Text Document",
+        "description": "Plain text file",
+        "role": "Editor"
       }
     ],
     "icon": [

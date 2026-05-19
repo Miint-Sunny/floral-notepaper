@@ -393,7 +393,7 @@ export function MainWindow({
         getFileModifiedTime(filePath),
       ]);
       const fileName = filePath.split(/[\\/]/).pop() ?? filePath;
-      const displayTitle = fileName.replace(/\.md$/i, "");
+      const displayTitle = fileName.replace(/\.(md|txt)$/i, "");
 
       setExternalFiles((current) => {
         if (current.some((f) => f.id === filePath)) {
