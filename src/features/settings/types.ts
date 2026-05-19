@@ -18,4 +18,6 @@ export interface AppConfig {
   fontSize: number;
   surfaceFontSize: number;
   externalFileAutoSave: boolean;
+  surfaceWidth?: number;
+  surfaceHeight?: number;
 }

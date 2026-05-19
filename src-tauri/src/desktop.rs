@@ -531,7 +531,7 @@ fn open_notepad_window_now(
     }
 
     let label = notepad_window_label(note_id);
-    let specs = notepad_window_specs();
+    let specs = saved_surface_specs();
     let url = match note_id {
         Some(id) => format!("index.html?view=notepad&noteId={id}"),
         None => "index.html?view=notepad".to_string(),
@@ -558,7 +558,7 @@ fn activate_pooled_notepad(app: &AppHandle, bounds: Option<WindowBounds>) -> Opt
     let label = pool.take()?;
     let window = app.get_webview_window(&label)?;
 
-    let specs = notepad_window_specs();
+    let specs = saved_surface_specs();
     let _ = window.set_size(tauri::LogicalSize::new(specs.width, specs.height));
     let _ = apply_window_bounds(&window, bounds);
     let _ = window.show();
@@ -575,6 +575,8 @@ pub fn recycle_notepad_window(app: &AppHandle, label: &str) -> Result<(), AppErr
         return Ok(());
     };
 
+    save_surface_size(&window);
+
     window.hide()?;
 
     let recycled = app
@@ -587,6 +589,31 @@ pub fn recycle_notepad_window(app: &AppHandle, label: &str) -> Result<(), AppErr
     }
 
     Ok(())
+}
+
+fn save_surface_size(window: &tauri::WebviewWindow) {
+    let Ok(size) = window.inner_size() else {
+        return;
+    };
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let logical = size.to_logical::<f64>(scale);
+    let w = logical.width.round() as u32;
+    let h = logical.height.round() as u32;
+    if w == 0 || h == 0 {
+        return;
+    }
+    let Ok(store) = default_store() else {
+        return;
+    };
+    let Ok(mut config) = store.load_config() else {
+        return;
+    };
+    if config.surface_width == Some(w) && config.surface_height == Some(h) {
+        return;
+    }
+    config.surface_width = Some(w);
+    config.surface_height = Some(h);
+    let _ = store.save_config(config);
 }
 
 fn schedule_notepad_prewarm(app: &AppHandle) {
@@ -655,6 +682,21 @@ fn notepad_window_specs() -> WindowSizeSpec {
     }
 }
 
+fn saved_surface_specs() -> WindowSizeSpec {
+    let defaults = notepad_window_specs();
+    let Ok(config) = load_config() else {
+        return defaults;
+    };
+    match (config.surface_width, config.surface_height) {
+        (Some(w), Some(h)) => WindowSizeSpec {
+            width: (w as f64).max(defaults.min_width),
+            height: (h as f64).max(defaults.min_height),
+            ..defaults
+        },
+        _ => defaults,
+    }
+}
+
 fn open_tile_window_now(
     app: &AppHandle,
     note_id: &str,
@@ -663,7 +705,7 @@ fn open_tile_window_now(
     let label = tile_window_label(note_id);
     let url = format!("index.html?view=tile&noteId={note_id}");
 
-    let specs = notepad_window_specs();
+    let specs = saved_surface_specs();
 
     open_or_focus_window(
         app,
@@ -1204,6 +1246,8 @@ mod tests {
             font_size: 14,
             surface_font_size: 14,
             external_file_auto_save: true,
+            surface_width: None,
+            surface_height: None,
         };
         let next = AppConfig {
             notes_dir: "D:\\other-notes".into(),
@@ -1219,6 +1263,8 @@ mod tests {
             font_size: 16,
             surface_font_size: 16,
             external_file_auto_save: true,
+            surface_width: None,
+            surface_height: None,
         };
 
         assert_eq!(
