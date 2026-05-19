@@ -1427,7 +1427,7 @@ export function MainWindow({
                   const isCollapsed = collapsedCategories.has(group.category);
 
                   return (
-                    <div key={group.category} className="px-2 mb-1.5">
+                    <div key={group.category} className="px-2 mb-0.5">
                       <div
                         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg group/cat cursor-pointer select-none transition-all duration-200 ${
                           dragOverCategory === group.category
