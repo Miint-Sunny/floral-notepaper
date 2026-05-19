@@ -69,6 +69,7 @@ pub enum ShortcutKey {
 pub struct RuntimeConfigChanges {
     pub autostart_changed: bool,
     pub global_shortcut_changed: bool,
+    pub toggle_visibility_shortcut_changed: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,6 +124,8 @@ struct WindowOpenOptions {
 #[derive(Default)]
 struct RuntimeState {
     is_exiting: AtomicBool,
+    windows_hidden: AtomicBool,
+    hidden_window_labels: std::sync::Mutex<Vec<String>>,
 }
 
 #[derive(Default)]
@@ -289,6 +292,44 @@ pub fn runtime_config_changes(previous: &AppConfig, next: &AppConfig) -> Runtime
     RuntimeConfigChanges {
         autostart_changed: previous.autostart != next.autostart,
         global_shortcut_changed: previous.global_shortcut != next.global_shortcut,
+        toggle_visibility_shortcut_changed: previous.toggle_visibility_shortcut
+            != next.toggle_visibility_shortcut,
+    }
+}
+
+fn toggle_app_visibility(app: &AppHandle) {
+    let Some(state) = app.try_state::<RuntimeState>() else {
+        return;
+    };
+
+    let was_hidden = state.windows_hidden.load(Ordering::SeqCst);
+
+    if was_hidden {
+        let labels: Vec<String> = state
+            .hidden_window_labels
+            .lock()
+            .map(|mut guard| guard.drain(..).collect())
+            .unwrap_or_default();
+
+        for label in &labels {
+            if let Some(window) = app.get_webview_window(label) {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+        state.windows_hidden.store(false, Ordering::SeqCst);
+    } else {
+        let mut labels = Vec::new();
+        for (label, window) in app.webview_windows() {
+            if window.is_visible().unwrap_or(false) {
+                labels.push(label.clone());
+                let _ = window.hide();
+            }
+        }
+        if let Ok(mut guard) = state.hidden_window_labels.lock() {
+            *guard = labels;
+        }
+        state.windows_hidden.store(true, Ordering::SeqCst);
     }
 }
 
@@ -301,6 +342,10 @@ pub fn apply_runtime_config(
 
     if changes.global_shortcut_changed {
         apply_global_shortcut_config(app, &next.global_shortcut)?;
+    }
+
+    if changes.toggle_visibility_shortcut_changed {
+        apply_visibility_toggle_shortcut_config(app, &next.toggle_visibility_shortcut)?;
     }
 
     if changes.autostart_changed {
@@ -885,9 +930,30 @@ fn setup_autostart_plugin(_app: &AppHandle) -> tauri::Result<()> {
 fn setup_global_shortcut_plugin(app: &AppHandle) -> tauri::Result<()> {
     app.plugin(
         tauri_plugin_global_shortcut::Builder::new()
-            .with_handler(|app, _shortcut, event| {
-                if event.state() == ShortcutState::Pressed {
-                    let app_for_closure = app.clone();
+            .with_handler(|app, shortcut, event| {
+                if event.state() != ShortcutState::Pressed {
+                    return;
+                }
+
+                let is_visibility_toggle = load_config()
+                    .ok()
+                    .and_then(|c| {
+                        if c.toggle_visibility_shortcut.is_empty() {
+                            return None;
+                        }
+                        shortcut_from_config(&c.toggle_visibility_shortcut)
+                            .and_then(to_tauri_shortcut)
+                    })
+                    .is_some_and(|vis| vis == *shortcut);
+
+                let app_for_closure = app.clone();
+                if is_visibility_toggle {
+                    if let Err(error) = app.run_on_main_thread(move || {
+                        toggle_app_visibility(&app_for_closure);
+                    }) {
+                        eprintln!("failed to dispatch visibility toggle action: {error}");
+                    }
+                } else {
                     if let Err(error) = app.run_on_main_thread(move || {
                         if let Err(error) = open_notepad_window_now(&app_for_closure, None, None) {
                             eprintln!("failed to open notepad from global shortcut: {error}");
@@ -920,10 +986,25 @@ fn register_configured_global_shortcut(app: &AppHandle) {
         eprintln!("{msg}");
         let _ = app.emit("shortcut-register-failed", &msg);
     }
+
+    register_configured_visibility_toggle_shortcut(app, &config);
 }
 
 #[cfg(not(desktop))]
 fn register_configured_global_shortcut(_app: &AppHandle) {}
+
+#[cfg(desktop)]
+fn register_configured_visibility_toggle_shortcut(app: &AppHandle, config: &AppConfig) {
+    if config.toggle_visibility_shortcut.is_empty() {
+        return;
+    }
+    if let Err(error) = register_global_shortcut(app, &config.toggle_visibility_shortcut) {
+        eprintln!(
+            "failed to register visibility toggle shortcut {}: {error}",
+            config.toggle_visibility_shortcut
+        );
+    }
+}
 
 #[cfg(desktop)]
 fn register_global_shortcut(app: &AppHandle, shortcut_config: &str) -> Result<(), Box<dyn Error>> {
@@ -958,7 +1039,6 @@ fn apply_global_shortcut_config(
         }));
     };
 
-    app.global_shortcut().unregister_all()?;
     app.global_shortcut().register(shortcut)?;
     Ok(())
 }
@@ -968,6 +1048,39 @@ fn apply_global_shortcut_config(
     _app: &AppHandle,
     _shortcut_config: &str,
 ) -> Result<(), Box<dyn Error>> {
+    Ok(())
+}
+
+#[cfg(desktop)]
+fn apply_visibility_toggle_shortcut_config(
+    app: &AppHandle,
+    shortcut_config: &str,
+) -> Result<(), Box<dyn Error>> {
+    let config = load_config()?;
+    app.global_shortcut().unregister_all()?;
+
+    let Some(shortcut) =
+        shortcut_from_config(&config.global_shortcut).and_then(to_tauri_shortcut)
+    else {
+        return Err(Box::new(AppError {
+            code: "unsupportedShortcut".into(),
+            message: format!("unsupported global shortcut config: {}", config.global_shortcut),
+        }));
+    };
+    app.global_shortcut().register(shortcut)?;
+
+    if !shortcut_config.is_empty() {
+        let Some(vis_shortcut) =
+            shortcut_from_config(shortcut_config).and_then(to_tauri_shortcut)
+        else {
+            return Err(Box::new(AppError {
+                code: "unsupportedShortcut".into(),
+                message: format!("unsupported visibility shortcut config: {shortcut_config}"),
+            }));
+        };
+        app.global_shortcut().register(vis_shortcut)?;
+    }
+
     Ok(())
 }
 
@@ -1285,8 +1398,10 @@ mod tests {
             surface_font_size: 14,
             external_file_auto_save: true,
             remember_surface_size: true,
+            tile_ctrl_close: true,
             surface_width: None,
             surface_height: None,
+            toggle_visibility_shortcut: String::new(),
         };
         let next = AppConfig {
             notes_dir: "D:\\other-notes".into(),
@@ -1303,8 +1418,10 @@ mod tests {
             surface_font_size: 16,
             external_file_auto_save: true,
             remember_surface_size: true,
+            tile_ctrl_close: true,
             surface_width: None,
             surface_height: None,
+            toggle_visibility_shortcut: "Ctrl+Shift+H".into(),
         };
 
         assert_eq!(
@@ -1312,6 +1429,7 @@ mod tests {
             RuntimeConfigChanges {
                 autostart_changed: true,
                 global_shortcut_changed: true,
+                toggle_visibility_shortcut_changed: true,
             }
         );
         assert_eq!(
@@ -1319,6 +1437,7 @@ mod tests {
             RuntimeConfigChanges {
                 autostart_changed: false,
                 global_shortcut_changed: false,
+                toggle_visibility_shortcut_changed: false,
             }
         );
     }
