@@ -17,6 +17,7 @@ const config = {
   surfaceFontSize: 14,
   externalFileAutoSave: true,
   rememberSurfaceSize: true,
+  tileCtrlClose: true,
 };
 
 describe("SettingsPanel", () => {

@@ -42,6 +42,7 @@ describe("settings api", () => {
       surfaceFontSize: 14,
       externalFileAutoSave: true,
       rememberSurfaceSize: true,
+      tileCtrlClose: true,
     };
     mockedInvoke.mockResolvedValue(config);
 
@@ -66,6 +67,7 @@ describe("settings api", () => {
       surfaceFontSize: 16,
       externalFileAutoSave: true,
       rememberSurfaceSize: true,
+      tileCtrlClose: true,
     };
     mockedInvoke.mockResolvedValue(config);
 

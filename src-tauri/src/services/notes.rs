@@ -32,6 +32,8 @@ pub struct AppConfig {
     pub external_file_auto_save: bool,
     #[serde(default = "default_remember_surface_size")]
     pub remember_surface_size: bool,
+    #[serde(default = "default_tile_ctrl_close")]
+    pub tile_ctrl_close: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface_width: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -498,6 +500,7 @@ impl NoteStore {
             surface_font_size: default_surface_font_size(),
             external_file_auto_save: default_external_file_auto_save(),
             remember_surface_size: default_remember_surface_size(),
+            tile_ctrl_close: default_tile_ctrl_close(),
             surface_width: None,
             surface_height: None,
         }
@@ -777,6 +780,10 @@ fn default_external_file_auto_save() -> bool {
 }
 
 fn default_remember_surface_size() -> bool {
+    true
+}
+
+fn default_tile_ctrl_close() -> bool {
     true
 }
 

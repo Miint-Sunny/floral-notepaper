@@ -22,6 +22,7 @@ describe("MainWindow settings", () => {
           surfaceFontSize: 14,
           externalFileAutoSave: true,
           rememberSurfaceSize: true,
+          tileCtrlClose: true,
         }}
       />,
     );
