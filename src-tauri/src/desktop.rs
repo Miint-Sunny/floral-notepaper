@@ -531,7 +531,7 @@ fn open_notepad_window_now(
     }
 
     let label = notepad_window_label(note_id);
-    let specs = saved_surface_specs();
+    let specs = saved_surface_specs(app);
     let url = match note_id {
         Some(id) => format!("index.html?view=notepad&noteId={id}"),
         None => "index.html?view=notepad".to_string(),
@@ -558,7 +558,7 @@ fn activate_pooled_notepad(app: &AppHandle, bounds: Option<WindowBounds>) -> Opt
     let label = pool.take()?;
     let window = app.get_webview_window(&label)?;
 
-    let specs = saved_surface_specs();
+    let specs = saved_surface_specs(app);
     let _ = window.set_size(tauri::LogicalSize::new(specs.width, specs.height));
     let _ = apply_window_bounds(&window, bounds);
     let _ = window.show();
@@ -685,13 +685,20 @@ fn notepad_window_specs() -> WindowSizeSpec {
     }
 }
 
-fn saved_surface_specs() -> WindowSizeSpec {
+fn saved_surface_specs(app: &AppHandle) -> WindowSizeSpec {
     let defaults = notepad_window_specs();
     let Ok(config) = load_config() else {
         return defaults;
     };
     if !config.remember_surface_size {
         return defaults;
+    }
+    if let Some((w, h)) = visible_surface_size(app) {
+        return WindowSizeSpec {
+            width: w.max(defaults.min_width),
+            height: h.max(defaults.min_height),
+            ..defaults
+        };
     }
     match (config.surface_width, config.surface_height) {
         (Some(w), Some(h)) => WindowSizeSpec {
@@ -703,6 +710,31 @@ fn saved_surface_specs() -> WindowSizeSpec {
     }
 }
 
+fn visible_surface_size(app: &AppHandle) -> Option<(f64, f64)> {
+    let mut fallback: Option<(f64, f64)> = None;
+    for (label, window) in app.webview_windows() {
+        if !label.starts_with("notepad-") && !label.starts_with("tile-") {
+            continue;
+        }
+        if !window.is_visible().unwrap_or(false) {
+            continue;
+        }
+        let size = window.inner_size().ok()?;
+        let scale = window.scale_factor().unwrap_or(1.0);
+        let logical = size.to_logical::<f64>(scale);
+        if logical.width <= 0.0 || logical.height <= 0.0 {
+            continue;
+        }
+        if window.is_focused().unwrap_or(false) {
+            return Some((logical.width, logical.height));
+        }
+        if fallback.is_none() {
+            fallback = Some((logical.width, logical.height));
+        }
+    }
+    fallback
+}
+
 fn open_tile_window_now(
     app: &AppHandle,
     note_id: &str,
@@ -711,7 +743,7 @@ fn open_tile_window_now(
     let label = tile_window_label(note_id);
     let url = format!("index.html?view=tile&noteId={note_id}");
 
-    let specs = saved_surface_specs();
+    let specs = saved_surface_specs(app);
 
     open_or_focus_window(
         app,

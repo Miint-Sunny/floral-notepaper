@@ -154,7 +154,7 @@ export function SettingsPanel({
             }
           />
           <ToggleRow
-            label="记忆小窗大小"
+            label="记住小窗尺寸"
             checked={config.rememberSurfaceSize}
             onChange={(checked) =>
               setConfigValue("rememberSurfaceSize", checked)
