@@ -125,7 +125,23 @@ struct WindowOpenOptions {
 struct RuntimeState {
     is_exiting: AtomicBool,
     windows_hidden: AtomicBool,
-    hidden_window_labels: std::sync::Mutex<Vec<String>>,
+    hidden_window_labels: Mutex<Vec<String>>,
+    #[cfg(desktop)]
+    shortcut_bindings: Mutex<ShortcutBindings>,
+}
+
+#[cfg(desktop)]
+#[derive(Clone, Default)]
+struct ShortcutBindings {
+    open_notepad: Option<Shortcut>,
+    toggle_visibility: Option<Shortcut>,
+}
+
+#[cfg(desktop)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ShortcutAction {
+    OpenNotepad,
+    ToggleVisibility,
 }
 
 #[derive(Default)]
@@ -163,6 +179,72 @@ impl RuntimeState {
 
     fn is_exiting(&self) -> bool {
         self.is_exiting.load(Ordering::SeqCst)
+    }
+
+    fn clear_hidden_windows(&self) {
+        if !self.windows_hidden.swap(false, Ordering::SeqCst) {
+            return;
+        }
+
+        if let Ok(mut guard) = self.hidden_window_labels.lock() {
+            guard.clear();
+        }
+    }
+
+    fn take_hidden_window_labels(&self) -> Option<Vec<String>> {
+        if !self.windows_hidden.swap(false, Ordering::SeqCst) {
+            return None;
+        }
+
+        self.hidden_window_labels
+            .lock()
+            .map(|mut guard| guard.drain(..).collect())
+            .ok()
+    }
+
+    fn hide_windows(&self, labels: Vec<String>) {
+        if labels.is_empty() {
+            self.clear_hidden_windows();
+            return;
+        }
+
+        if let Ok(mut guard) = self.hidden_window_labels.lock() {
+            *guard = labels;
+            self.windows_hidden.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[cfg(desktop)]
+    fn set_shortcut_bindings(&self, bindings: ShortcutBindings) {
+        if let Ok(mut guard) = self.shortcut_bindings.lock() {
+            *guard = bindings;
+        }
+    }
+
+    #[cfg(desktop)]
+    fn shortcut_action(&self, shortcut: &Shortcut) -> ShortcutAction {
+        self.shortcut_bindings
+            .lock()
+            .ok()
+            .and_then(|bindings| bindings.action_for(shortcut))
+            .unwrap_or(ShortcutAction::OpenNotepad)
+    }
+}
+
+#[cfg(desktop)]
+impl ShortcutBindings {
+    fn action_for(&self, shortcut: &Shortcut) -> Option<ShortcutAction> {
+        if self
+            .toggle_visibility
+            .as_ref()
+            .is_some_and(|s| s == shortcut)
+        {
+            Some(ShortcutAction::ToggleVisibility)
+        } else if self.open_notepad.as_ref().is_some_and(|s| s == shortcut) {
+            Some(ShortcutAction::OpenNotepad)
+        } else {
+            None
+        }
     }
 }
 
@@ -299,10 +381,7 @@ pub fn runtime_config_changes(previous: &AppConfig, next: &AppConfig) -> Runtime
 
 fn clear_hidden_window_state(app: &AppHandle) {
     if let Some(state) = app.try_state::<RuntimeState>() {
-        state.windows_hidden.store(false, Ordering::SeqCst);
-        if let Ok(mut guard) = state.hidden_window_labels.lock() {
-            guard.clear();
-        }
+        state.clear_hidden_windows();
     }
 }
 
@@ -311,35 +390,34 @@ fn toggle_app_visibility(app: &AppHandle) {
         return;
     };
 
-    let was_hidden = state.windows_hidden.load(Ordering::SeqCst);
-
-    if was_hidden {
-        let labels: Vec<String> = state
-            .hidden_window_labels
-            .lock()
-            .map(|mut guard| guard.drain(..).collect())
-            .unwrap_or_default();
-
+    if let Some(labels) = state.take_hidden_window_labels() {
+        let mut focus_target = None;
         for label in &labels {
             if let Some(window) = app.get_webview_window(label) {
+                let _ = window.unminimize();
                 let _ = window.show();
+                if focus_target.is_none() || label == MAIN_WINDOW_LABEL {
+                    focus_target = Some(label.clone());
+                }
+            }
+        }
+
+        if let Some(label) = focus_target {
+            if let Some(window) = app.get_webview_window(&label) {
                 let _ = window.set_focus();
             }
         }
-        state.windows_hidden.store(false, Ordering::SeqCst);
-    } else {
-        let mut labels = Vec::new();
-        for (label, window) in app.webview_windows() {
-            if window.is_visible().unwrap_or(false) {
-                labels.push(label.clone());
-                let _ = window.hide();
-            }
-        }
-        if let Ok(mut guard) = state.hidden_window_labels.lock() {
-            *guard = labels;
-        }
-        state.windows_hidden.store(true, Ordering::SeqCst);
+        return;
     }
+
+    let mut labels = Vec::new();
+    for (label, window) in app.webview_windows() {
+        if window.is_visible().unwrap_or(false) {
+            labels.push(label.clone());
+            let _ = window.hide();
+        }
+    }
+    state.hide_windows(labels);
 }
 
 pub fn apply_runtime_config(
@@ -945,31 +1023,30 @@ fn setup_global_shortcut_plugin(app: &AppHandle) -> tauri::Result<()> {
                     return;
                 }
 
-                let is_visibility_toggle = load_config()
-                    .ok()
-                    .and_then(|c| {
-                        if c.toggle_visibility_shortcut.is_empty() {
-                            return None;
-                        }
-                        shortcut_from_config(&c.toggle_visibility_shortcut)
-                            .and_then(to_tauri_shortcut)
-                    })
-                    .is_some_and(|vis| vis == *shortcut);
+                let action = app
+                    .try_state::<RuntimeState>()
+                    .map(|state| state.shortcut_action(shortcut))
+                    .unwrap_or(ShortcutAction::OpenNotepad);
 
                 let app_for_closure = app.clone();
-                if is_visibility_toggle {
-                    if let Err(error) = app.run_on_main_thread(move || {
-                        toggle_app_visibility(&app_for_closure);
-                    }) {
-                        eprintln!("failed to dispatch visibility toggle action: {error}");
-                    }
-                } else {
-                    if let Err(error) = app.run_on_main_thread(move || {
-                        if let Err(error) = open_notepad_window_now(&app_for_closure, None, None) {
-                            eprintln!("failed to open notepad from global shortcut: {error}");
+                match action {
+                    ShortcutAction::ToggleVisibility => {
+                        if let Err(error) = app.run_on_main_thread(move || {
+                            toggle_app_visibility(&app_for_closure);
+                        }) {
+                            eprintln!("failed to dispatch visibility toggle action: {error}");
                         }
-                    }) {
-                        eprintln!("failed to dispatch global shortcut action: {error}");
+                    }
+                    ShortcutAction::OpenNotepad => {
+                        if let Err(error) = app.run_on_main_thread(move || {
+                            if let Err(error) =
+                                open_notepad_window_now(&app_for_closure, None, None)
+                            {
+                                eprintln!("failed to open notepad from global shortcut: {error}");
+                            }
+                        }) {
+                            eprintln!("failed to dispatch global shortcut action: {error}");
+                        }
                     }
                 }
             })
@@ -988,92 +1065,85 @@ fn register_configured_global_shortcut(app: &AppHandle) {
         return;
     };
 
-    if let Err(error) = register_global_shortcut(app, &config.global_shortcut) {
-        let msg = format!(
-            "failed to register global shortcut {}: {error}",
-            config.global_shortcut
-        );
+    if let Err(error) = install_global_shortcut_bindings(app, &config, false) {
+        let msg = format!("failed to register global shortcuts: {error}");
         eprintln!("{msg}");
         let _ = app.emit("shortcut-register-failed", &msg);
     }
-
-    register_configured_visibility_toggle_shortcut(app, &config);
 }
 
 #[cfg(not(desktop))]
 fn register_configured_global_shortcut(_app: &AppHandle) {}
 
 #[cfg(desktop)]
-fn register_configured_visibility_toggle_shortcut(app: &AppHandle, config: &AppConfig) {
-    if config.toggle_visibility_shortcut.is_empty() {
-        return;
-    }
-    if let Err(error) = register_global_shortcut(app, &config.toggle_visibility_shortcut) {
-        eprintln!(
-            "failed to register visibility toggle shortcut {}: {error}",
-            config.toggle_visibility_shortcut
-        );
-    }
+fn parse_configured_shortcut(field: &str, value: &str) -> Result<Shortcut, Box<dyn Error>> {
+    shortcut_from_config(value)
+        .and_then(to_tauri_shortcut)
+        .ok_or_else(|| {
+            Box::new(AppError {
+                code: "unsupportedShortcut".into(),
+                message: format!("unsupported {field} shortcut config: {value}"),
+            }) as Box<dyn Error>
+        })
 }
 
 #[cfg(desktop)]
-fn register_global_shortcut(app: &AppHandle, shortcut_config: &str) -> Result<(), Box<dyn Error>> {
-    let Some(shortcut) = shortcut_from_config(shortcut_config).and_then(to_tauri_shortcut) else {
-        return Err(Box::new(AppError {
-            code: "unsupportedShortcut".into(),
-            message: format!("unsupported global shortcut config: {shortcut_config}"),
-        }));
+fn shortcut_bindings_from_config(config: &AppConfig) -> Result<ShortcutBindings, Box<dyn Error>> {
+    let open_notepad = parse_configured_shortcut("global", &config.global_shortcut)?;
+    let toggle_visibility = if config.toggle_visibility_shortcut.is_empty() {
+        None
+    } else {
+        Some(parse_configured_shortcut(
+            "visibility toggle",
+            &config.toggle_visibility_shortcut,
+        )?)
     };
 
-    app.global_shortcut().register(shortcut)?;
-    Ok(())
+    if toggle_visibility
+        .as_ref()
+        .is_some_and(|shortcut| shortcut == &open_notepad)
+    {
+        return Err(Box::new(AppError {
+            code: "duplicateShortcut".into(),
+            message: "visibility toggle shortcut must differ from global shortcut".into(),
+        }));
+    }
+
+    Ok(ShortcutBindings {
+        open_notepad: Some(open_notepad),
+        toggle_visibility,
+    })
 }
 
-#[cfg(not(desktop))]
-fn register_global_shortcut(
-    _app: &AppHandle,
-    _shortcut_config: &str,
+#[cfg(desktop)]
+fn install_global_shortcut_bindings(
+    app: &AppHandle,
+    config: &AppConfig,
+    replace_existing: bool,
 ) -> Result<(), Box<dyn Error>> {
+    let bindings = shortcut_bindings_from_config(config)?;
+
+    if replace_existing {
+        app.global_shortcut().unregister_all()?;
+    }
+
+    if let Some(shortcut) = &bindings.open_notepad {
+        app.global_shortcut().register(shortcut.clone())?;
+    }
+    if let Some(shortcut) = &bindings.toggle_visibility {
+        app.global_shortcut().register(shortcut.clone())?;
+    }
+
+    if let Some(state) = app.try_state::<RuntimeState>() {
+        state.set_shortcut_bindings(bindings);
+    }
+
     Ok(())
 }
 
 #[cfg(desktop)]
 fn apply_global_shortcut_config(app: &AppHandle, config: &AppConfig) -> Result<(), Box<dyn Error>> {
-    let Some(shortcut) = shortcut_from_config(&config.global_shortcut).and_then(to_tauri_shortcut)
-    else {
-        return Err(Box::new(AppError {
-            code: "unsupportedShortcut".into(),
-            message: format!(
-                "unsupported global shortcut config: {}",
-                config.global_shortcut
-            ),
-        }));
-    };
-
-    let visibility_shortcut = if config.toggle_visibility_shortcut.is_empty() {
-        None
-    } else {
-        Some(
-            shortcut_from_config(&config.toggle_visibility_shortcut)
-                .and_then(to_tauri_shortcut)
-                .ok_or_else(|| {
-                    Box::new(AppError {
-                        code: "unsupportedShortcut".into(),
-                        message: format!(
-                            "unsupported visibility shortcut config: {}",
-                            config.toggle_visibility_shortcut
-                        ),
-                    }) as Box<dyn Error>
-                })?,
-        )
-    };
-
-    app.global_shortcut().unregister_all()?;
-    app.global_shortcut().register(shortcut)?;
-    if let Some(visibility_shortcut) = visibility_shortcut {
-        app.global_shortcut().register(visibility_shortcut)?;
-    }
-    Ok(())
+    install_global_shortcut_bindings(app, config, true)
 }
 
 #[cfg(not(desktop))]
@@ -1371,6 +1441,34 @@ mod tests {
         assert_eq!(shortcut_from_config("Space"), None);
         assert_eq!(shortcut_from_config("Shift+K"), None);
         assert_eq!(shortcut_from_config("Ctrl+Unknown"), None);
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn rejects_duplicate_shortcut_bindings() {
+        let config = AppConfig {
+            notes_dir: "D:\\notes".into(),
+            global_shortcut: "Ctrl+Space".into(),
+            close_to_tray: true,
+            autostart: false,
+            default_view_mode: "split".into(),
+            note_auto_save: true,
+            note_surface_auto_save: true,
+            tile_color: "#f6f3ec".into(),
+            tile_color_mode: "system".into(),
+            theme: "light".into(),
+            font_size: 14,
+            surface_font_size: 14,
+            external_file_auto_save: true,
+            toggle_visibility_shortcut: "Ctrl+Space".into(),
+        };
+
+        let error = match shortcut_bindings_from_config(&config) {
+            Ok(_) => panic!("expected duplicate shortcut error"),
+            Err(error) => error,
+        };
+
+        assert!(error.to_string().contains("must differ"));
     }
 
     #[test]
