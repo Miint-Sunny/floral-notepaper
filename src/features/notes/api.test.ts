@@ -1,3 +1,4 @@
+import { i18n } from "../../locales";
 import { describe, expect, test } from "vitest";
 import { getErrorMessage } from "./api";
 
@@ -24,6 +25,17 @@ describe("notes api error localization", () => {
 
   test("parses serialized backend error strings when a structured payload is unavailable", () => {
     expect(getErrorMessage("noteNotFound: Note note-1 was not found")).toBe("找不到该笔记");
+  });
+
+  test("localizes serialized category errors when interpolation details can be recovered", () => {
+    const translate = i18n.getFixedT("en-US");
+
+    expect(getErrorMessage("categoryNotFound: 分类「工作」不存在", translate)).toBe(
+      'Category "工作" not found',
+    );
+    expect(getErrorMessage("categoryAlreadyExists: 分类「工作」已存在", translate)).toBe(
+      'Category "工作" already exists',
+    );
   });
 
   test("falls back to the backend message for unknown error codes", () => {

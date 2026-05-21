@@ -11,8 +11,10 @@ interface SerializedAppError {
 type ErrorDetails = Record<string, string>;
 
 const LOCALIZED_ERROR_CODES = new Set([
+  "categoryAlreadyExists",
   "categoryNameEmpty",
   "categoryNameInvalidChars",
+  "categoryNotFound",
   "desktopConfig",
   "duplicateShortcut",
   "noPool",
@@ -138,11 +140,17 @@ function getLocalizedAppErrorMessage(
         defaultValue: "分类名不能包含特殊字符",
       });
     case "categoryNotFound":
+      if (!appError.details.category) {
+        return appError.message ?? null;
+      }
       return translate("errors.categoryNotFound", {
         category: appError.details.category,
         defaultValue: "分类「{{category}}」不存在",
       });
     case "categoryAlreadyExists":
+      if (!appError.details.category) {
+        return appError.message ?? null;
+      }
       return translate("errors.categoryAlreadyExists", {
         category: appError.details.category,
         defaultValue: "分类「{{category}}」已存在",
@@ -174,6 +182,18 @@ function getLocalizedAppErrorMessage(
   }
 }
 
+function parseSerializedAppErrorDetails(code: string, rawMessage: string): ErrorDetails {
+  switch (code) {
+    case "categoryNotFound":
+    case "categoryAlreadyExists": {
+      const categoryMatch = /^分类「(.+)」(?:不存在|已存在)$/.exec(rawMessage);
+      return categoryMatch ? { category: categoryMatch[1] } : {};
+    }
+    default:
+      return {};
+  }
+}
+
 function parseSerializedAppError(message: string, translate: TFunction): string | null {
   const match = /^([A-Za-z][A-Za-z0-9]*):\s+(.+)$/.exec(message);
   if (!match) {
@@ -185,8 +205,9 @@ function parseSerializedAppError(message: string, translate: TFunction): string 
     return null;
   }
 
-  return (
-    getLocalizedAppErrorMessage({ code, message: rawMessage, details: {} }, translate) ?? rawMessage
+  return getLocalizedAppErrorMessage(
+    { code, message: rawMessage, details: parseSerializedAppErrorDetails(code, rawMessage) },
+    translate,
   );
 }
 

@@ -45,19 +45,20 @@ function markdownFileName(title: string, translate: TFunction = t): string {
 }
 
 function safeFileStem(value: string): string {
-  return value
-    .trim()
-    .replace(/./g, (char) => {
-      const code = char.codePointAt(0) ?? 0;
+  const sanitized = Array.from(value.trim(), (char) => {
+    const code = char.codePointAt(0) ?? 0;
 
-      if ('<>:"/\\|?*'.includes(char) || code < 0x20) {
-        return "_";
-      }
+    if ('<>:"/\\|?*'.includes(char) || code < 0x20) {
+      return "_";
+    }
 
-      return char;
-    })
+    return char;
+  }).join("");
+
+  const normalized = sanitized
     .replace(/\s+/g, "_")
     .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 80);
+    .replace(/^_+|_+$/g, "");
+
+  return Array.from(normalized).slice(0, 80).join("");
 }
