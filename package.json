@@ -23,7 +23,6 @@
     "katex": "^0.16.47",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-hotkeys-hook": "^5.3.2",
     "react-i18next": "^17.0.8",
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",

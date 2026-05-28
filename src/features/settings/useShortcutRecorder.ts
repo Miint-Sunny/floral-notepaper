@@ -46,6 +46,22 @@ function normalizeKey(key: string, code?: string): string {
   return key;
 }
 
+function buildShortcutString(
+  ctrl: boolean,
+  alt: boolean,
+  shift: boolean,
+  meta: boolean,
+  key: string,
+): string {
+  const parts: string[] = [];
+  if (ctrl) parts.push("Control");
+  if (alt) parts.push("Alt");
+  if (shift) parts.push("Shift");
+  if (meta) parts.push("Meta");
+  parts.push(key);
+  return parts.join("+");
+}
+
 export function useShortcutRecorder({
   onRecord,
 }: UseShortcutRecorderOptions): ShortcutRecorderHandle {
@@ -85,14 +101,15 @@ export function useShortcutRecorder({
       }
 
       e.preventDefault();
-      const parts: string[] = [];
-      if (e.ctrlKey) parts.push("Control");
-      if (e.altKey) parts.push("Alt");
-      if (e.shiftKey) parts.push("Shift");
-      if (e.metaKey) parts.push("Meta");
-      parts.push(normalizeKey(e.key, e.code));
-
-      finishRecording(parts.join("+"));
+      finishRecording(
+        buildShortcutString(
+          e.ctrlKey,
+          e.altKey,
+          e.shiftKey,
+          e.metaKey,
+          normalizeKey(e.key, e.code),
+        ),
+      );
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -120,14 +137,7 @@ export function useShortcutRecorder({
         return;
       }
 
-      const parts: string[] = [];
-      if (ctrl) parts.push("Control");
-      if (alt) parts.push("Alt");
-      if (shift) parts.push("Shift");
-      if (meta) parts.push("Meta");
-      parts.push(key);
-
-      finishRecording(parts.join("+"));
+      finishRecording(buildShortcutString(ctrl, alt, shift, meta, key));
     }).then((fn) => {
       if (cancelled) {
         fn();
