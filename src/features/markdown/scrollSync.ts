@@ -1,17 +1,20 @@
-export interface BlockMeasurement {
+interface ParsedBlock {
   text: string;
-  offset: number;
-  height: number;
+  startLine: number; // inclusive
+  endLine: number; // exclusive
 }
 
-/** Parse markdown text into non-empty logical blocks (headings, code fences, math blocks, etc.) */
-function parseBlocks(text: string): string[] {
+/** Parse markdown into non-empty logical blocks with line boundaries. */
+function parseBlocks(text: string): ParsedBlock[] {
   const lines = text.split("\n");
-  const blocks: string[] = [];
+  const blocks: ParsedBlock[] = [];
   let i = 0;
 
+  const push = (start: number, end: number) => {
+    blocks.push({ text: lines.slice(start, end).join("\n"), startLine: start, endLine: end });
+  };
+
   while (i < lines.length) {
-    // Skip blank lines
     if (lines[i].trim() === "") {
       i++;
       continue;
@@ -28,7 +31,7 @@ function parseBlocks(text: string): string[] {
       i++;
       while (i < lines.length && !lines[i].trim().startsWith(fence)) i++;
       if (i < lines.length) i++;
-      blocks.push(lines.slice(start, i).join("\n"));
+      push(start, i);
       continue;
     }
 
@@ -38,13 +41,13 @@ function parseBlocks(text: string): string[] {
       i++;
       while (i < lines.length && lines[i].trim() !== "$$") i++;
       if (i < lines.length) i++;
-      blocks.push(lines.slice(start, i).join("\n"));
+      push(start, i);
       continue;
     }
 
-    // Heading / HR (single-line blocks)
+    // Heading / HR
     if (/^#{1,6}\s/.test(line) || /^(-{3,}|\*{3,}|_{3,})\s*$/.test(trimmed)) {
-      blocks.push(line);
+      push(i, i + 1);
       i++;
       continue;
     }
@@ -53,7 +56,7 @@ function parseBlocks(text: string): string[] {
     if (line.startsWith(">")) {
       const start = i;
       while (i < lines.length && lines[i].startsWith(">")) i++;
-      blocks.push(lines.slice(start, i).join("\n"));
+      push(start, i);
       continue;
     }
 
@@ -61,7 +64,7 @@ function parseBlocks(text: string): string[] {
     if (/^\s*\|/.test(line)) {
       const start = i;
       while (i < lines.length && /^\s*\|/.test(lines[i])) i++;
-      blocks.push(lines.slice(start, i).join("\n"));
+      push(start, i);
       continue;
     }
 
@@ -81,7 +84,7 @@ function parseBlocks(text: string): string[] {
         if (/^(#{1,6}\s|```|~~~|>)/.test(l) || l.trim() === "$$") break;
         i++;
       }
-      blocks.push(lines.slice(start, i).join("\n"));
+      push(start, i);
       continue;
     }
 
@@ -94,60 +97,68 @@ function parseBlocks(text: string): string[] {
       if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(l.trim())) break;
       i++;
     }
-    if (i > start) {
-      blocks.push(lines.slice(start, i).join("\n"));
-    }
+    if (i > start) push(start, i);
   }
 
   return blocks;
 }
 
 /**
- * Measure pixel offsets of each block when rendered with textarea-equivalent styling.
- * Must be called after the textarea is in the DOM.
+ * Measure the textarea scrollTop offset where each block begins.
+ * Uses a hidden clone textarea to get accurate pixel positions.
  */
-export function measureBlocks(content: string, textarea: HTMLTextAreaElement): BlockMeasurement[] {
+export function measureBlockOffsets(
+  content: string,
+  sourceTextarea: HTMLTextAreaElement,
+): number[] {
   const blocks = parseBlocks(content);
   if (blocks.length === 0) return [];
 
-  const style = getComputedStyle(textarea);
-  const fontSize = parseFloat(style.fontSize) || 14;
-  const lineHeight = parseFloat(style.lineHeight) || fontSize * 1.9;
+  const style = getComputedStyle(sourceTextarea);
+  const paddingTop = parseFloat(style.paddingTop) || 0;
+  const paddingBottom = parseFloat(style.paddingBottom) || 0;
+  const totalPadding = paddingTop + paddingBottom;
 
-  const container = document.createElement("div");
-  container.style.cssText = `
+  const measure = document.createElement("textarea");
+  measure.style.cssText = `
     position: fixed; top: -9999px; left: -9999px; visibility: hidden;
-    width: ${textarea.clientWidth}px;
+    width: ${style.width};
+    height: auto;
+    font: ${style.font};
+    font-size: ${style.fontSize};
     font-family: ${style.fontFamily};
-    font-size: ${fontSize}px;
-    line-height: ${lineHeight};
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    tab-size: 2;
+    font-weight: ${style.fontWeight};
+    line-height: ${style.lineHeight};
+    letter-spacing: ${style.letterSpacing};
+    word-spacing: ${style.wordSpacing};
+    white-space: ${style.whiteSpace};
+    word-wrap: ${style.wordWrap};
+    word-break: ${style.wordBreak};
+    tab-size: ${style.tabSize};
+    padding: ${style.padding};
+    border: ${style.border};
+    box-sizing: ${style.boxSizing};
+    overflow: hidden;
   `;
-  document.body.appendChild(container);
+  document.body.appendChild(measure);
 
-  const results: BlockMeasurement[] = [];
-  for (const block of blocks) {
-    const div = document.createElement("div");
-    div.textContent = block;
-    container.appendChild(div);
-    results.push({
-      text: block,
-      offset: div.offsetTop,
-      height: div.offsetHeight,
-    });
+  const lines = content.split("\n");
+  // offsets[i] = textarea.scrollTop that puts block[i] at the top
+  const offsets: number[] = [0];
+
+  for (let i = 0; i < blocks.length - 1; i++) {
+    measure.value = lines.slice(0, blocks[i].endLine).join("\n");
+    offsets.push(measure.scrollHeight - totalPadding);
   }
 
-  document.body.removeChild(container);
-  return results;
+  document.body.removeChild(measure);
+  return offsets;
 }
 
-/** Find which block index contains the given pixel offset. */
-export function blockIndexAtOffset(measurements: BlockMeasurement[], offset: number): number {
-  for (let i = measurements.length - 1; i >= 0; i--) {
-    if (measurements[i].offset <= offset) return i;
+/** Find which block index occupies the given textarea scrollTop. */
+export function blockIndexAtOffset(offsets: number[], scrollTop: number): number {
+  for (let i = offsets.length - 1; i >= 0; i--) {
+    if (offsets[i] <= scrollTop) return i;
   }
   return 0;
 }
@@ -155,7 +166,7 @@ export function blockIndexAtOffset(measurements: BlockMeasurement[], offset: num
 /**
  * Add data-block-index attributes to block-level children
  * of the MarkdownPreview root element (.font-body).
- * Indices match the non-empty block array produced by parseBlocks.
+ * Indices match the non-empty block indices from parseBlocks.
  */
 export function tagPreviewBlocks(container: HTMLElement): void {
   const root = container.querySelector<HTMLElement>(".font-body");
