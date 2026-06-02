@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { getConfig } from "../features/settings/api";
 import type { AppConfig } from "../features/settings/types";
 import { requestSurfaceAction } from "../features/windows/surfaceActions";
@@ -12,6 +13,9 @@ interface MenuState {
   hasSelection: boolean;
   type: "edit" | "tile";
 }
+
+const textareaSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+const inputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
 
 export function ContextMenuProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -116,9 +120,50 @@ export function ContextMenuProvider({ children }: { children: React.ReactNode })
     setMenuClosing(true);
   }, []);
 
-  const runCommand = (command: string) => {
-    editableTargetRef.current?.focus();
-    document.execCommand(command);
+  const runCommand = async (command: string) => {
+    const target = editableTargetRef.current;
+
+    if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+      const start = target.selectionStart ?? 0;
+      const end = target.selectionEnd ?? 0;
+      const value = target.value;
+      const selected = value.slice(start, end);
+      const before = value.slice(0, start);
+      const after = value.slice(end);
+
+      target.focus();
+
+      const nativeSetter = target instanceof HTMLTextAreaElement ? textareaSetter : inputSetter;
+      const setValue = (newValue: string, cursorPos: number) => {
+        nativeSetter?.call(target, newValue);
+        target.selectionStart = target.selectionEnd = cursorPos;
+        target.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+
+      switch (command) {
+        case "copy":
+          if (selected) await writeText(selected);
+          break;
+        case "cut":
+          if (selected) {
+            await writeText(selected);
+            setValue(before + after, start);
+          }
+          break;
+        case "paste": {
+          const text = await readText();
+          setValue(before + text + after, start + text.length);
+          break;
+        }
+        case "selectAll":
+          target.select();
+          break;
+      }
+    } else {
+      target?.focus();
+      document.execCommand(command);
+    }
+
     dismissMenu();
   };
 
