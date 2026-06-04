@@ -94,7 +94,7 @@ jobs:
             "test/",
             "tests/",
             "__tests__/",
-            ".github/workflows/",
+            ".github/",
           ];
 
           const frontendFiles = new Set([
