@@ -229,6 +229,7 @@
     "selectFolder": "Select Folder",
     "shortcut": {
       "cancelHint": "Esc to cancel",
+      "clear": "Clear",
       "checkFailed": "Shortcut check failed",
       "checking": "Checking shortcut...",
       "cleared": "Shortcut cleared",

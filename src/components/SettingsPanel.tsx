@@ -566,7 +566,19 @@ function ShortcutRecorder({ value, onChange }: ShortcutRecorderProps) {
     shortcutCheckRequestId.current += 1;
   };
 
+  const markShortcutCleared = () => {
+    invalidateShortcutChecks();
+    setCheckState("idle");
+    setCheckMsg({ key: "settings.shortcut.cleared" });
+  };
+
   const runShortcutCheck = async (shortcut: string, saveWhenAvailable: boolean) => {
+    // 未设置是合法状态，不需要调用后端做冲突检测。
+    if (!shortcut) {
+      markShortcutCleared();
+      return;
+    }
+
     const requestId = shortcutCheckRequestId.current + 1;
     shortcutCheckRequestId.current = requestId;
     setCheckState("checking");
@@ -600,10 +612,8 @@ function ShortcutRecorder({ value, onChange }: ShortcutRecorderProps) {
   const recorder = useShortcutRecorder({
     onRecord: (shortcut) => {
       if (shortcut === "") {
-        invalidateShortcutChecks();
         onChange("");
-        setCheckState("idle");
-        setCheckMsg({ key: "settings.shortcut.cleared" });
+        markShortcutCleared();
       } else if (isValidGlobalShortcut(shortcut)) {
         const configString = hotkeyToConfigString(shortcut, platform);
         void runShortcutCheck(configString, true);
@@ -615,6 +625,13 @@ function ShortcutRecorder({ value, onChange }: ShortcutRecorderProps) {
     },
   });
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const clearShortcut = () => {
+    // 显式清除会保存为空值，后端据此注销旧的全局快捷键绑定。
+    recorder.cancelRecording();
+    onChange("");
+    markShortcutCleared();
+  };
 
   useEffect(() => {
     if (!recorder.isRecording) return;
@@ -680,7 +697,17 @@ function ShortcutRecorder({ value, onChange }: ShortcutRecorderProps) {
         </button>
         <button
           type="button"
-          disabled={isChecking || recorder.isRecording}
+          disabled={!value || recorder.isRecording}
+          onClick={clearShortcut}
+          aria-label={t("settings.shortcut.clear", { defaultValue: "清除" })}
+          title={t("settings.shortcut.clear", { defaultValue: "清除" })}
+          className="w-8 h-8 rounded-lg border border-paper-deep/45 text-[15px] leading-none text-ink-faint hover:text-red-400 hover:bg-paper-warm/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+        >
+          ×
+        </button>
+        <button
+          type="button"
+          disabled={!value || isChecking || recorder.isRecording}
           onClick={() => void runShortcutCheck(value, false)}
           className="h-8 px-3 rounded-lg border border-paper-deep/45 text-[11px] text-ink-faint hover:text-bamboo hover:bg-bamboo-mist/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
         >

@@ -229,6 +229,7 @@
     "selectFolder": "選擇資料夾",
     "shortcut": {
       "cancelHint": "Esc 取消",
+      "clear": "清除",
       "checkFailed": "快捷鍵檢測失敗",
       "checking": "正在檢測快捷鍵...",
       "cleared": "快捷鍵已清除",
