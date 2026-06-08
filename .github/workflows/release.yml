@@ -30,15 +30,11 @@ jobs:
           TAG_NAME: ${{ github.event.inputs.version }}
         run: |
           ver="$(echo "$TAG_NAME" | sed 's/^v//')"
-          cat > release-body.md << EOF
-          建议下载安装版本 \`floral-notepaper_${ver}_x64-setup.exe\`，无法正常安装再下载可运行文件 \`floral-notepaper_${ver}.exe\`
-
-          macOS Apple Silicon 版：\`floral-notepaper_${ver}_aarch64.dmg\`；macOS Intel 版：\`floral-notepaper_${ver}_x64.dmg\`。
-
-          Linux 版：\`floral-notepaper_${ver}_amd64.deb\`（Debian/Ubuntu）、\`floral-notepaper-${ver}-1.x86_64.rpm\`（Fedora/RHEL）、\`floral-notepaper_${ver}_amd64.AppImage\`（通用 Linux）。
-
-          macOS 版安装流程请参考视频（Bilibili）：[Mac云课堂 - 在 Mac 上装软件，要学会和苹果斗智斗勇](https://www.bilibili.com/video/BV1tg411t7hN)
-          EOF
+          release_note_file="Docs/release-note/${ver}.md"
+          if [ ! -f "$release_note_file" ]; then
+            echo "Release note file not found: $release_note_file" >&2
+            exit 1
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -48,10 +44,10 @@ jobs:
           git push origin "refs/tags/$TAG_NAME"
 
           if gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --draft --notes-file release-body.md
+            gh release edit "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --draft --notes-file "$release_note_file"
             echo "created=false" >> "$GITHUB_OUTPUT"
           else
-            gh release create "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --draft --title "$TAG_NAME" --notes-file release-body.md --verify-tag
+            gh release create "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --draft --title "$TAG_NAME" --notes-file "$release_note_file" --verify-tag
             echo "created=true" >> "$GITHUB_OUTPUT"
           fi
 
