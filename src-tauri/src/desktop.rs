@@ -4,7 +4,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 #[cfg(target_os = "macos")]
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 use std::{
     error::Error,
     sync::{
