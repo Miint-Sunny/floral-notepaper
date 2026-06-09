@@ -1570,18 +1570,18 @@ export function MainWindow({
 
   const selectedTilePinned = selectedId ? pinnedTileIds.has(selectedId) : false;
 
-  const handleTitleBarDrag = (event: MouseEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("button")) return;
-    void startCurrentWindowDrag().catch(() => undefined);
-  };
-
   const toggleMaximize = () => {
     void toggleMaximizeCurrentWindow().then(() => isCurrentWindowMaximized().then(setIsMaximized));
   };
 
-  const handleTitleBarDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
+  const handleTitleBarMouseDown = (event: MouseEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest("button")) return;
-    toggleMaximize();
+    if (event.button !== 0) return;
+    if (event.detail === 2) {
+      toggleMaximize();
+      return;
+    }
+    void startCurrentWindowDrag().catch(() => undefined);
   };
 
   const handleMinimize = () => {
@@ -1609,8 +1609,7 @@ export function MainWindow({
           className={`relative z-10 flex items-center justify-between h-11 bg-paper/55 backdrop-blur-[1px] border-b border-paper-deep/30 shrink-0 select-none cursor-default ${
             isMacOS ? "pl-20 pr-5" : "pl-5 pr-0"
           }`}
-          onMouseDown={handleTitleBarDrag}
-          onDoubleClick={handleTitleBarDoubleClick}
+          onMouseDown={handleTitleBarMouseDown}
         >
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-[15px] font-serif font-medium text-ink-soft tracking-wide leading-none">
