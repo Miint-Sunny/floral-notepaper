@@ -1249,7 +1249,7 @@ fn hide_fullscreen_window(window: &Window) {
             &block,
         )
     };
-    let _ = observer_holder.set(observer);
+    let _ = observer_holder.set(observer.into());
 
     FULLSCREEN_HIDING.store(true, Ordering::SeqCst);
     let _ = window.set_fullscreen(false);
