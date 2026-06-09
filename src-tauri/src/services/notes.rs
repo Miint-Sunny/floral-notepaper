@@ -256,32 +256,61 @@ fn resolve_data_dir(config_dir: &Path) -> Result<PathBuf, AppError> {
             return Ok(PathBuf::from(trimmed));
         }
     }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct PartialConfig {
+        data_dir: Option<String>,
+        notes_dir: Option<String>,
+    }
+
+    fn data_dir_from_partial(partial: &PartialConfig) -> Option<PathBuf> {
+        if let Some(ref data_dir) = partial.data_dir {
+            return Some(PathBuf::from(data_dir));
+        }
+        if let Some(ref notes_dir) = partial.notes_dir {
+            return Some(data_dir_from_notes_dir(notes_dir));
+        }
+        None
+    }
+
     let config_path = config_dir.join("config.json");
     if config_path.exists() {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct PartialConfig {
-            data_dir: Option<String>,
-            notes_dir: Option<String>,
-        }
         if let Ok(content) = fs::read_to_string(&config_path) {
             if let Ok(partial) = serde_json::from_str::<PartialConfig>(&content) {
-                if let Some(ref data_dir) = partial.data_dir {
-                    return Ok(PathBuf::from(data_dir));
-                }
-                if let Some(ref notes_dir) = partial.notes_dir {
-                    let path = Path::new(notes_dir);
-                    if path.file_name().and_then(|n| n.to_str()) == Some("notes") {
-                        if let Some(parent) = path.parent() {
-                            return Ok(parent.to_path_buf());
-                        }
-                    }
-                    return Ok(path.to_path_buf());
+                if let Some(dir) = data_dir_from_partial(&partial) {
+                    return Ok(dir);
                 }
             }
         }
     }
+
+    for old_dir in known_data_migration_candidates() {
+        let old_config = old_dir.join("config.json");
+        if !old_config.exists() {
+            continue;
+        }
+        if let Ok(content) = fs::read_to_string(&old_config) {
+            if let Ok(partial) = serde_json::from_str::<PartialConfig>(&content) {
+                if let Some(dir) = data_dir_from_partial(&partial) {
+                    return Ok(dir);
+                }
+            }
+        }
+        return Ok(old_dir);
+    }
+
     default_data_dir()
+}
+
+fn data_dir_from_notes_dir(notes_dir: &str) -> PathBuf {
+    let path = Path::new(notes_dir);
+    if path.file_name().and_then(|n| n.to_str()) == Some("notes") {
+        if let Some(parent) = path.parent() {
+            return parent.to_path_buf();
+        }
+    }
+    path.to_path_buf()
 }
 
 fn known_data_migration_candidates() -> Vec<PathBuf> {
@@ -896,7 +925,12 @@ impl NoteStore {
             );
             let old_str = fs::read_to_string(&old_config)?;
             let mut config: AppConfig = serde_json::from_str(&old_str)?;
-            config.data_dir = Some(old_dir.to_string_lossy().to_string());
+            let resolved_data_dir = config
+                .notes_dir
+                .as_deref()
+                .map(|nd| data_dir_from_notes_dir(nd).to_string_lossy().to_string())
+                .unwrap_or_else(|| old_dir.to_string_lossy().to_string());
+            config.data_dir = Some(resolved_data_dir);
             config.notes_dir = None;
             config.last_known_base_dir = None;
             fs::create_dir_all(&self.config_dir)?;
