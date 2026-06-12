@@ -25,7 +25,10 @@ const MACOS_SHORTCUT_MIGRATION_MARKER: &str = ".macos-shortcut-default-v3";
 pub struct AppConfig {
     #[serde(default = "default_locale")]
     pub locale: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    // 读入时可缺省（旧 config 无此字段），但返回前端前必在 load_config / save_config
+    // 中被设为 Some。不加 skip_serializing_if：保证 dataDir 字段始终序列化输出，
+    // 与前端 `dataDir: string` 契约一致，避免 None 时省略字段导致前端收到 undefined
+    #[serde(default)]
     pub data_dir: Option<String>,
     pub global_shortcut: String,
     pub close_to_tray: bool,
@@ -372,10 +375,14 @@ fn rescue_loose_legacy_notes(legacy_base_dir: &Path, data_dir: &Path) {
                     continue;
                 }
                 let name = entry.file_name().to_string_lossy().to_string();
-                if matches!(
-                    name.as_str(),
-                    "notes" | "images" | "backgrounds" | "updates"
-                ) {
+                // 点前缀目录是 VCS / 应用配置（.git、.obsidian 等），绝非用户分类，
+                // 连同保留目录一并跳过，避免把无关目录的 .md 误搬成笔记
+                if name.starts_with('.')
+                    || matches!(
+                        name.as_str(),
+                        "notes" | "images" | "backgrounds" | "updates"
+                    )
+                {
                     continue;
                 }
                 move_loose_note_files_in(&path, &notes_dir.join(&name));
@@ -397,6 +404,8 @@ fn move_loose_note_files_in(from: &Path, to: &Path) {
     }
 }
 
+// legacy 数据搬运：尽力而为，单个文件失败不中断整体迁移，故吞掉错误。
+// 与下方 move_path 的"错误传播"语义刻意相反——调用方需据此选择
 fn move_loose_note_file(src: &Path, dst: &Path) {
     if !src.is_file() || dst.exists() {
         return;
@@ -411,6 +420,8 @@ fn move_loose_note_file(src: &Path, dst: &Path) {
     }
 }
 
+// 关键路径搬运（aux data / 目录迁移）：失败必须向上传播，
+// 与上方 move_loose_note_file 的"静默吞错"语义刻意相反
 fn move_path(src: &Path, dst: &Path) -> Result<(), AppError> {
     if src.is_dir() {
         return move_or_copy_dir(src, dst);
@@ -435,15 +446,29 @@ fn remap_path_prefix(path_str: &str, old_base: &Path, new_base: &Path) -> String
     }
 }
 
-// 仅用于路径比较：解析符号链接并统一大小写表示（Windows 上 canonicalize 返回 \\?\ 前缀路径）。
-// 目标路径尚不存在时退而规范化其父目录
+// 仅用于路径比较：解析符号链接并统一表示。Windows 上 fs::canonicalize 返回
+// \\?\ verbatim 前缀，而 fallback 分支拿不到该前缀；若一边规范化成功、另一边走
+// fallback，starts_with 前缀比较会失配，导致嵌套目录保护被绕过。这里统一剥离
+// verbatim 前缀，保证两条路径处于同一表示空间
 fn canonical_for_compare(path: &Path) -> PathBuf {
+    fn strip_verbatim(path: PathBuf) -> PathBuf {
+        let text = path.to_string_lossy();
+        if let Some(rest) = text.strip_prefix(r"\\?\") {
+            // UNC verbatim 前缀 \\?\UNC\server\share → \\server\share
+            if let Some(unc) = rest.strip_prefix(r"UNC\") {
+                return PathBuf::from(format!(r"\\{unc}"));
+            }
+            return PathBuf::from(rest);
+        }
+        path
+    }
+
     if let Ok(canonical) = fs::canonicalize(path) {
-        return canonical;
+        return strip_verbatim(canonical);
     }
     if let (Some(parent), Some(name)) = (path.parent(), path.file_name()) {
         if let Ok(parent) = fs::canonicalize(parent) {
-            return parent.join(name);
+            return strip_verbatim(parent).join(name);
         }
     }
     path.to_path_buf()
@@ -489,6 +514,12 @@ fn move_or_copy_dir(from: &Path, to: &Path) -> Result<(), AppError> {
 }
 
 fn copy_dir_recursive(from: &Path, to: &Path) -> Result<(), AppError> {
+    // 拒绝把目录复制进自身子目录：否则递归无限展开、磁盘耗尽。
+    // migrate_data_to 上层已用 canonical_for_compare 拦截，这里做底层兜底，
+    // 与 updater::helper 的同名实现保持一致的自递归防护
+    if to.starts_with(from) && to != from {
+        return Err(AppError::new("unsafePath", "目标目录不能位于源目录内部"));
+    }
     fs::create_dir_all(to)?;
     for entry in fs::read_dir(from)? {
         let entry = entry?;
@@ -600,6 +631,9 @@ impl NoteStore {
         }
 
         let mut config: AppConfig = serde_json::from_str(&fs::read_to_string(&path)?)?;
+        // config 中记录的 dataDir 是上次运行时数据所在位置；若本次 resolve 出的
+        // self.data_dir 与之不同（如 FLORAL_NOTEPAPER_DATA_DIR 被改），尝试搬运旧数据
+        self.migrate_data_dir_if_relocated(&mut config);
         config.data_dir = Some(self.data_dir.to_string_lossy().to_string());
         config.tab_indent_size = config.tab_indent_size.clamp(1, 8);
         write_json_atomic(&path, &config)?;
@@ -1208,6 +1242,18 @@ impl NoteStore {
         match serde_json::from_str(&fs::read_to_string(&path)?) {
             Ok(metadata) => Ok(metadata),
             Err(_) => {
+                // 备份损坏文件再重建：rebuild 从文件系统推断 created_at / 分类，
+                // 与原始数据可能不一致，保留原件供事后取证分析
+                let corrupt_name = format!(
+                    "metadata.corrupt-{}.json",
+                    Utc::now().format("%Y%m%d%H%M%S")
+                );
+                if let Err(error) = fs::rename(&path, self.data_dir.join(&corrupt_name)) {
+                    eprintln!(
+                        "failed to back up corrupt metadata {}: {error}",
+                        path.display()
+                    );
+                }
                 let rebuilt = self.rebuild_metadata()?;
                 self.save_metadata(&rebuilt)?;
                 Ok(rebuilt)
@@ -1221,13 +1267,22 @@ impl NoteStore {
     }
 
     fn notes_dir_has_md_files(&self) -> bool {
-        let notes_dir = self.notes_dir();
-        let Ok(entries) = fs::read_dir(&notes_dir) else {
-            return false;
-        };
-        entries
-            .filter_map(|e| e.ok())
-            .any(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("md"))
+        // 递归扫描：笔记按分类存放在子目录中（notes/工作/x.md），
+        // 只看根目录会漏掉所有已分类笔记，导致 rebuild_metadata 被错误跳过
+        fn dir_has_md(dir: &Path) -> bool {
+            let Ok(entries) = fs::read_dir(dir) else {
+                return false;
+            };
+            entries.filter_map(|e| e.ok()).any(|entry| {
+                let path = entry.path();
+                if path.is_dir() {
+                    dir_has_md(&path)
+                } else {
+                    path.extension().and_then(|ext| ext.to_str()) == Some("md")
+                }
+            })
+        }
+        dir_has_md(&self.notes_dir())
     }
 
     fn rebuild_metadata(&self) -> Result<MetadataFile, AppError> {
@@ -1327,17 +1382,90 @@ impl NoteStore {
         config.data_dir = Some(new_data_dir.to_string_lossy().to_string());
         new_store.save_config(config)?;
 
-        // 第三阶段：清理旧位置。失败只会留下冗余副本，不影响新目录的数据
+        // 第三阶段：清理旧位置。失败只会留下冗余副本，不影响新目录的数据，
+        // 但需记录日志：否则用户可能困惑哪份是权威数据
         for item in DATA_DIR_ITEMS {
             let src = self.data_dir.join(item);
             if src.is_dir() {
-                let _ = fs::remove_dir_all(&src);
+                if let Err(error) = fs::remove_dir_all(&src) {
+                    eprintln!(
+                        "data migrated, but failed to clean up old directory {}: {error}",
+                        src.display()
+                    );
+                }
             } else if src.is_file() {
-                let _ = fs::remove_file(&src);
+                if let Err(error) = fs::remove_file(&src) {
+                    eprintln!(
+                        "data migrated, but failed to clean up old file {}: {error}",
+                        src.display()
+                    );
+                }
             }
         }
 
         Ok(new_store)
+    }
+
+    // 跨重启自动迁移：config 持久化的 dataDir 与本次 resolve 的 self.data_dir 不一致时
+    // （典型为修改 FLORAL_NOTEPAPER_DATA_DIR 环境变量），把旧位置数据搬到新位置。
+    // 关键不变量：仅当新位置尚无用户数据时才迁移，否则保留两边、不合并，避免交叉污染。
+    // 失败不阻断启动——记录日志后继续，旧数据仍在原地不会丢失
+    fn migrate_data_dir_if_relocated(&self, config: &mut AppConfig) {
+        let Some(ref last_dir) = config.data_dir else {
+            return;
+        };
+        let old_dir = PathBuf::from(last_dir);
+        if canonical_for_compare(&old_dir) == canonical_for_compare(&self.data_dir) {
+            return;
+        }
+        if !old_dir.exists() {
+            return;
+        }
+        match self.data_dir_has_user_data() {
+            Ok(true) | Err(_) => return,
+            Ok(false) => {}
+        }
+        eprintln!(
+            "data dir relocated, migrating from {} to {}",
+            old_dir.display(),
+            self.data_dir.display()
+        );
+        for item in DATA_DIR_ITEMS {
+            let src = old_dir.join(item);
+            let dst = self.data_dir.join(item);
+            if !src.exists() || dst.exists() {
+                continue;
+            }
+            if let Err(error) = move_path(&src, &dst) {
+                eprintln!(
+                    "failed to migrate {item} from {} to {}: {}",
+                    old_dir.display(),
+                    self.data_dir.display(),
+                    error.message
+                );
+            }
+        }
+        config.background_image_path =
+            remap_path_prefix(&config.background_image_path, &old_dir, &self.data_dir);
+    }
+
+    // 新数据目录是否已有用户数据（config.json 不算，它属于配置目录、且可能与数据目录重合）
+    fn data_dir_has_user_data(&self) -> Result<bool, AppError> {
+        if !self.data_dir.exists() {
+            return Ok(false);
+        }
+        for entry in fs::read_dir(&self.data_dir)? {
+            let entry = entry?;
+            let file_name = entry.file_name();
+            let Some(name) = file_name.to_str() else {
+                return Ok(true);
+            };
+            if name == "config.json" || name == MACOS_SHORTCUT_MIGRATION_MARKER {
+                continue;
+            }
+            return Ok(true);
+        }
+        Ok(false)
     }
 }
 
@@ -1616,6 +1744,18 @@ mod tests {
         assert_eq!(repaired.len(), 2);
         assert!(ids.contains(&first.id.as_str()));
         assert!(ids.contains(&second.id.as_str()));
+
+        // 损坏文件被备份保留，供事后取证分析
+        let corrupt_backup = fs::read_dir(store.data_dir())
+            .expect("read data dir")
+            .filter_map(|entry| entry.ok())
+            .any(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("metadata.corrupt-")
+            });
+        assert!(corrupt_backup, "corrupt metadata should be backed up");
     }
 
     #[test]
@@ -1774,7 +1914,7 @@ mod tests {
 
         let store = NoteStore::new(root.join("appdata"), custom_dir.clone());
         store
-            .migrate_config_from_candidates(&[old_dir.clone()])
+            .migrate_config_from_candidates(std::slice::from_ref(&old_dir))
             .expect("migrate legacy config");
 
         assert!(custom_dir.join("metadata.json").exists());
@@ -1833,7 +1973,7 @@ mod tests {
 
         let store = NoteStore::new(root.join("appdata"), custom_dir.clone());
         store
-            .migrate_config_from_candidates(&[old_dir.clone()])
+            .migrate_config_from_candidates(std::slice::from_ref(&old_dir))
             .expect("migrate legacy config");
 
         assert!(custom_dir.join("notes").join("id-1_第一篇.md").exists());
@@ -1876,7 +2016,7 @@ mod tests {
 
         let store = NoteStore::new(root.join("appdata"), custom_dir.clone());
         store
-            .migrate_config_from_candidates(&[old_dir.clone()])
+            .migrate_config_from_candidates(std::slice::from_ref(&old_dir))
             .expect("migrate legacy config");
 
         assert!(custom_dir.join("notes").join("id-1_散落.md").exists());
@@ -1885,6 +2025,82 @@ mod tests {
             .join("分类")
             .join("id-2_归类.md")
             .exists());
+    }
+
+    // 模拟 FLORAL_NOTEPAPER_DATA_DIR 改向新空目录：旧位置数据应自动迁移过来
+    #[test]
+    fn relocates_data_when_target_dir_is_empty() {
+        let root = test_root("relocate-empty");
+        let config_dir = root.join("config");
+        let old_data = root.join("old");
+        let new_data = root.join("new");
+
+        // 在旧位置创建一条笔记，并把 config 持久化为指向旧位置
+        let old_store = NoteStore::new(config_dir.clone(), old_data.clone());
+        let created = old_store
+            .create_note(SaveNoteRequest {
+                title: "重定位".into(),
+                content: "# 重定位\n正文".into(),
+                category: String::new(),
+            })
+            .expect("create note in old dir");
+        old_store.load_config().expect("persist old config");
+
+        // 新 store 共享同一 config 目录，但 data_dir 指向新空目录
+        let new_store = NoteStore::new(config_dir.clone(), new_data.clone());
+        let notes = new_store.list_notes().expect("list after relocate");
+
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].id, created.id);
+        assert!(new_data.join("metadata.json").exists());
+        assert!(!old_data.join("metadata.json").exists());
+
+        let config: AppConfig = serde_json::from_str(
+            &fs::read_to_string(new_store.config_path()).expect("read config"),
+        )
+        .expect("parse config");
+        assert_eq!(
+            config.data_dir.as_deref(),
+            Some(new_data.to_string_lossy().as_ref())
+        );
+    }
+
+    // 新位置已有用户数据时绝不合并，保留两边，防止交叉污染
+    #[test]
+    fn does_not_merge_relocated_data_into_non_empty_target() {
+        let root = test_root("relocate-non-empty");
+        let config_dir = root.join("config");
+        let old_data = root.join("old");
+        let new_data = root.join("new");
+
+        let old_store = NoteStore::new(config_dir.clone(), old_data.clone());
+        old_store
+            .create_note(SaveNoteRequest {
+                title: "旧数据".into(),
+                content: "旧正文".into(),
+                category: String::new(),
+            })
+            .expect("create old note");
+        old_store.load_config().expect("persist old config");
+
+        // 新位置已有独立笔记
+        let seed_store = NoteStore::new(root.join("seed-config"), new_data.clone());
+        let kept = seed_store
+            .create_note(SaveNoteRequest {
+                title: "新数据".into(),
+                content: "新正文".into(),
+                category: String::new(),
+            })
+            .expect("create new note");
+
+        let new_store = NoteStore::new(config_dir.clone(), new_data.clone());
+        let notes = new_store.list_notes().expect("list after relocate");
+
+        // 只保留新位置原有数据，旧数据未被搬入合并
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].id, kept.id);
+        // 旧数据原地保留，未丢失
+        assert!(old_data.join("metadata.json").exists());
     }
 
     #[test]

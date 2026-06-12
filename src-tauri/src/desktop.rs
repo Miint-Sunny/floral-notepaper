@@ -1802,13 +1802,19 @@ fn open_or_focus_window(
         .skip_taskbar(opts.skip_taskbar)
         .visible(false);
 
+    // 仅主窗口使用 macOS 原生红绿灯（Overlay 标题栏）。notepad / tile 是
+    // decorations: false 的透明无边框窗口，叠加红绿灯会渲染在内容区上方造成冲突
     #[cfg(target_os = "macos")]
-    let builder = builder
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .hidden_title(true)
-        .traffic_light_position(tauri::Position::Logical(tauri::LogicalPosition::new(
-            14.0, 23.0,
-        )));
+    let builder = if label == MAIN_WINDOW_LABEL {
+        builder
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .hidden_title(true)
+            .traffic_light_position(tauri::Position::Logical(tauri::LogicalPosition::new(
+                14.0, 23.0,
+            )))
+    } else {
+        builder
+    };
 
     let window = builder.build()?;
 

@@ -284,6 +284,30 @@ export function pinTileButtonTitle(isPinned: boolean): string {
   return isPinned ? "取消钉屏" : "钉到屏幕";
 }
 
+interface LoadEpoch {
+  // 开始一次新的异步加载，返回本次 epoch token；之后用 isCurrent 校验是否仍然有效
+  bump: () => number;
+  // 只读取当前 epoch 而不自增：用于"记录事件到达瞬间的代次，期间若发生切换则过期"
+  peek: () => number;
+  // 异步完成后调用：仅当期间未发生新的 bump（用户未切换/重载）时为 true
+  isCurrent: (token: number) => boolean;
+}
+
+// 统一封装"加载竞态守卫"：每次切换/加载笔记自增 epoch，异步结果回来后用
+// isCurrent 判断是否过期。集中此处后，新增异步加载路径只需 bump/isCurrent 两步，
+// 避免裸 ref 在多处内联导致的"忘记连线 → stale 结果覆盖新选中"竞态回归
+function useLoadEpoch(): LoadEpoch {
+  const ref = useRef(0);
+  return useMemo<LoadEpoch>(
+    () => ({
+      bump: () => (ref.current += 1),
+      peek: () => ref.current,
+      isCurrent: (token: number) => ref.current === token,
+    }),
+    [],
+  );
+}
+
 interface MainWindowProps {
   initialSettingsOpen?: boolean;
   initialConfig?: AppConfig;
@@ -372,7 +396,7 @@ export function MainWindow({
   externalFilesRef.current = externalFiles;
   // 每次"应用/切换当前笔记"都会自增；异步加载完成后若 epoch 已变化，说明用户
   // 已切换到别处，该次结果直接丢弃，避免旧的加载结果覆盖新选中的笔记
-  const loadEpochRef = useRef(0);
+  const loadEpoch = useLoadEpoch();
   // 串行化所有保存请求，避免自动保存与切换触发的保存并发写同一篇笔记
   const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
 
@@ -530,19 +554,22 @@ export function MainWindow({
   );
   const charCount = useMemo(() => countNoteChars(content), [content]);
 
-  const applyNote = useCallback((note: Note) => {
-    // 立刻同步各 ref，保证保存快照与守卫在下一次渲染前就能读到最新值
-    loadEpochRef.current += 1;
-    selectedIdRef.current = note.id;
-    titleValueRef.current = note.title;
-    contentValueRef.current = note.content;
-    saveStateRef.current = "saved";
-    setSelectedId(note.id);
-    setTitle(note.title);
-    setContent(note.content);
-    setSaveState("saved");
-    setNoteTransitionKey((k) => k + 1);
-  }, []);
+  const applyNote = useCallback(
+    (note: Note) => {
+      // 立刻同步各 ref，保证保存快照与守卫在下一次渲染前就能读到最新值
+      loadEpoch.bump();
+      selectedIdRef.current = note.id;
+      titleValueRef.current = note.title;
+      contentValueRef.current = note.content;
+      saveStateRef.current = "saved";
+      setSelectedId(note.id);
+      setTitle(note.title);
+      setContent(note.content);
+      setSaveState("saved");
+      setNoteTransitionKey((k) => k + 1);
+    },
+    [loadEpoch],
+  );
 
   const replaceNoteMetadata = useCallback((note: Note) => {
     const metadata = metadataFromNote(note);
@@ -557,14 +584,14 @@ export function MainWindow({
 
   const loadNote = useCallback(
     async (id: string) => {
-      const epoch = ++loadEpochRef.current;
+      const epoch = loadEpoch.bump();
       const note = await getNote(id);
       // 加载期间用户又切换/加载了别的笔记，丢弃本次结果
-      if (loadEpochRef.current !== epoch) return;
+      if (!loadEpoch.isCurrent(epoch)) return;
       applyNote(note);
       replaceNoteMetadata(note);
     },
-    [applyNote, replaceNoteMetadata],
+    [applyNote, replaceNoteMetadata, loadEpoch],
   );
 
   const refreshNotes = useCallback(async () => {
@@ -575,7 +602,7 @@ export function MainWindow({
   }, []);
 
   const clearCurrentNote = useCallback(() => {
-    loadEpochRef.current += 1;
+    loadEpoch.bump();
     selectedIdRef.current = null;
     titleValueRef.current = "";
     contentValueRef.current = "";
@@ -584,47 +611,50 @@ export function MainWindow({
     setTitle("");
     setContent("");
     setSaveState("idle");
-  }, []);
+  }, [loadEpoch]);
 
-  const loadExternalFile = useCallback(async (filePath: string) => {
-    const epoch = ++loadEpochRef.current;
-    try {
-      const [fileContent, mtime] = await Promise.all([
-        readExternalFile(filePath),
-        getFileModifiedTime(filePath),
-      ]);
-      const fileName = filePath.split(/[\\/]/).pop() ?? filePath;
-      const displayTitle = fileName.replace(/\.(md|txt)$/i, "");
+  const loadExternalFile = useCallback(
+    async (filePath: string) => {
+      const epoch = loadEpoch.bump();
+      try {
+        const [fileContent, mtime] = await Promise.all([
+          readExternalFile(filePath),
+          getFileModifiedTime(filePath),
+        ]);
+        const fileName = filePath.split(/[\\/]/).pop() ?? filePath;
+        const displayTitle = fileName.replace(/\.(md|txt)$/i, "");
 
-      setExternalFiles((current) => {
-        if (current.some((f) => f.id === filePath)) {
-          return current;
-        }
-        return [
-          ...current,
-          {
-            id: filePath,
-            title: displayTitle,
-            filePath,
-          },
-        ];
-      });
+        setExternalFiles((current) => {
+          if (current.some((f) => f.id === filePath)) {
+            return current;
+          }
+          return [
+            ...current,
+            {
+              id: filePath,
+              title: displayTitle,
+              filePath,
+            },
+          ];
+        });
 
-      if (loadEpochRef.current !== epoch) return;
-      selectedIdRef.current = filePath;
-      titleValueRef.current = displayTitle;
-      contentValueRef.current = fileContent;
-      saveStateRef.current = "saved";
-      setSelectedId(filePath);
-      setTitle(displayTitle);
-      setContent(fileContent);
-      setSaveState("saved");
-      setNoteTransitionKey((k) => k + 1);
-      externalFileMtimeRef.current = mtime;
-    } catch (error) {
-      showToast(getErrorMessage(error));
-    }
-  }, []);
+        if (!loadEpoch.isCurrent(epoch)) return;
+        selectedIdRef.current = filePath;
+        titleValueRef.current = displayTitle;
+        contentValueRef.current = fileContent;
+        saveStateRef.current = "saved";
+        setSelectedId(filePath);
+        setTitle(displayTitle);
+        setContent(fileContent);
+        setSaveState("saved");
+        setNoteTransitionKey((k) => k + 1);
+        externalFileMtimeRef.current = mtime;
+      } catch (error) {
+        showToast(getErrorMessage(error));
+      }
+    },
+    [loadEpoch],
+  );
 
   useEffect(() => {
     try {
@@ -809,8 +839,8 @@ export function MainWindow({
     const unlisten = listen("notes-changed", () => {
       // 记录事件到达时的 epoch；其间用户一旦切换/加载了笔记，本次同步即过期，
       // 不再用过期的列表快照去改选中或回填内容，避免把选中"拉回"刚保存的旧笔记
-      const epochAtEvent = loadEpochRef.current;
-      const isStale = () => loadEpochRef.current !== epochAtEvent;
+      const epochAtEvent = loadEpoch.peek();
+      const isStale = () => !loadEpoch.isCurrent(epochAtEvent);
       void refreshNotes()
         .then((loaded) => {
           if (isStale()) return;
@@ -848,7 +878,7 @@ export function MainWindow({
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, [refreshNotes, loadNote, clearCurrentNote]);
+  }, [refreshNotes, loadNote, clearCurrentNote, loadEpoch]);
 
   useEffect(() => {
     function handleFocus() {
@@ -1105,6 +1135,12 @@ export function MainWindow({
     const unlisten = listen<UpdateInstallPrepareRequest>("update://prepare-install", (event) => {
       const respond = async () => {
         const windowLabel = windowLabelRef.current;
+        // 无未保存修改时直接上报就绪：避免排进 saveQueueRef，被正在执行的
+        // 防抖自动保存拖住、不必要地延迟安装准备响应
+        if (saveStateRef.current !== "dirty") {
+          await reportInstallPreparation(event.payload.requestId, windowLabel, "ready");
+          return;
+        }
         const saved = await saveCurrentNote();
         await reportInstallPreparation(
           event.payload.requestId,
@@ -1207,6 +1243,15 @@ export function MainWindow({
     try {
       const dir = await chooseDataDirectory();
       if (!dir) return;
+      // 后端会在所选目录下创建 floral 子目录存放数据；先告知用户，
+      // 避免其在文件管理器打开所选目录看到"空文件夹"而误判数据丢失
+      const confirmed = window.confirm(
+        t("settings.dataDir.confirmSubdir", {
+          dir,
+          defaultValue: "数据将存放在「{{dir}}」下的 floral 子文件夹中，是否继续？",
+        }),
+      );
+      if (!confirmed) return;
       const savedConfig = await migrateDataDir(dir);
       setSettingsConfig(savedConfig);
       setSavedDataDir(savedConfig.dataDir);
@@ -1325,13 +1370,13 @@ export function MainWindow({
     if (!file) return;
 
     setIsLoading(true);
-    const epoch = ++loadEpochRef.current;
+    const epoch = loadEpoch.bump();
     try {
       const [fileContent, mtime] = await Promise.all([
         readExternalFile(file.filePath),
         getFileModifiedTime(file.filePath),
       ]);
-      if (loadEpochRef.current !== epoch) return;
+      if (!loadEpoch.isCurrent(epoch)) return;
       selectedIdRef.current = id;
       titleValueRef.current = file.title;
       contentValueRef.current = fileContent;
