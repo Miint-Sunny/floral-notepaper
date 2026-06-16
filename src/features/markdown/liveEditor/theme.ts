@@ -52,8 +52,8 @@ export function liveEditorTheme(fontSize: number) {
       padding: "0 0.5em 0 0.6em",
       fontVariantNumeric: "tabular-nums",
     },
-    ".cm-activeLine": {
-      backgroundColor: "transparent",
+    ".cm-activeLine, .cm-md-active-block": {
+      backgroundColor: "color-mix(in srgb, var(--color-bamboo) 8%, transparent)",
     },
 
     // --- Markdown live-preview element styling ---

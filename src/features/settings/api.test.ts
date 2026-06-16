@@ -52,6 +52,7 @@ describe("settings api", () => {
       splitScrollSync: true,
       codeBlockLineNumbers: false,
       editorLineNumbers: false,
+      liveActiveHighlight: "off",
       openAtCursor: true,
     };
     mockedInvoke.mockResolvedValue(config);
@@ -86,6 +87,7 @@ describe("settings api", () => {
       splitScrollSync: true,
       codeBlockLineNumbers: false,
       editorLineNumbers: false,
+      liveActiveHighlight: "off",
       openAtCursor: true,
     };
     mockedInvoke.mockResolvedValue(config);
