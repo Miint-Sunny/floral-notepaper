@@ -26,6 +26,8 @@ export interface AppConfig {
   tileRenderMarkdown: boolean;
   renderHtmlMarkdown: boolean;
   splitScrollSync: boolean;
+  codeBlockLineNumbers: boolean;
+  editorLineNumbers: boolean;
   surfaceWidth?: number;
   surfaceHeight?: number;
   toggleVisibilityShortcut: string;

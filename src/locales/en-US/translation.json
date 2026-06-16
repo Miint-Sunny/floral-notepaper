@@ -268,6 +268,8 @@
     "tileRenderMarkdown": "Render Markdown on tile",
     "renderHtmlMarkdown": "Render HTML tags in Markdown",
     "splitScrollSync": "Split view scroll sync",
+    "codeBlockLineNumbers": "Code block line numbers (Live)",
+    "editorLineNumbers": "Editor line-number gutter (Live)",
     "title": "Settings",
     "update": {
       "advanced": "Advanced",

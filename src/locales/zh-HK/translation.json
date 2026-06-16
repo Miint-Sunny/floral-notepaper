@@ -268,6 +268,8 @@
     "tileRenderMarkdown": "磁貼渲染 Markdown",
     "renderHtmlMarkdown": "允許 HTML 標籤渲染",
     "splitScrollSync": "分欄同步捲動",
+    "codeBlockLineNumbers": "即時模式代碼塊行號",
+    "editorLineNumbers": "即時模式整篇行號欄",
     "title": "應用程式設定",
     "update": {
       "advanced": "進階",

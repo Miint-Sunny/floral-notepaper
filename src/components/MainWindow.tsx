@@ -3005,6 +3005,8 @@ export function MainWindow({
                         }}
                         fontSize={settingsConfig?.fontSize ?? 14}
                         resolveImageSrc={resolveLiveImageSrc}
+                        showCodeLineNumbers={settingsConfig?.codeBlockLineNumbers ?? false}
+                        showEditorLineNumbers={settingsConfig?.editorLineNumbers ?? false}
                         placeholder={t("main.editor.contentPlaceholder", {
                           defaultValue: "开始写作……",
                         })}
