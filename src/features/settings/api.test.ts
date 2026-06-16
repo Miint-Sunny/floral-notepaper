@@ -110,6 +110,7 @@ describe("settings api", () => {
     expect(normalizeViewMode("edit")).toBe("edit");
     expect(normalizeViewMode("split")).toBe("split");
     expect(normalizeViewMode("preview")).toBe("preview");
+    expect(normalizeViewMode("live")).toBe("live");
     expect(normalizeViewMode("unknown")).toBe("split");
   });
 

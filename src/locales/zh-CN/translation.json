@@ -213,6 +213,7 @@
     "defaultView": {
       "edit": "编辑",
       "label": "默认视图",
+      "live": "即时",
       "preview": "预览",
       "split": "分栏"
     },

@@ -7,6 +7,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AboutPanel } from "./AboutPanel";
 import { exportMarkdownNote, importMarkdownNote } from "../features/importExport/api";
 import { MarkdownPreview } from "../features/markdown/MarkdownPreview";
+import { LiveEditor } from "../features/markdown/LiveEditor";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { showToast } from "./Toast";
 import {
   blockIndexAtOffset,
@@ -389,6 +391,15 @@ export function MainWindow({
   const externalFileMtimeRef = useRef<number>(0);
   const lastExternalSaveRef = useRef<number>(0);
   const imageBaseDir = useImageBaseDir();
+  const resolveLiveImageSrc = useCallback(
+    (src: string) => {
+      if (src.startsWith("images/") && imageBaseDir) {
+        return convertFileSrc(imageBaseDir + "/" + src);
+      }
+      return src;
+    },
+    [imageBaseDir],
+  );
   const saveStateRef = useRef(saveState);
   const isMacOS = useMemo(() => {
     return (
@@ -521,6 +532,10 @@ export function MainWindow({
       {
         value: "split" as ViewMode,
         label: t("settings.defaultView.split", { defaultValue: "分栏" }),
+      },
+      {
+        value: "live" as ViewMode,
+        label: t("settings.defaultView.live", { defaultValue: "即时" }),
       },
       {
         value: "preview" as ViewMode,
@@ -2977,6 +2992,23 @@ export function MainWindow({
                           imageBaseDir={imageBaseDir ?? undefined}
                         />
                       </div>
+                    </div>
+                  )}
+
+                  {viewMode === "live" && (
+                    <div className="flex flex-col min-h-0 min-w-0 flex-1 px-6 pt-3 pb-2">
+                      <LiveEditor
+                        value={content}
+                        onChange={(next) => {
+                          setContent(next);
+                          markDirty();
+                        }}
+                        fontSize={settingsConfig?.fontSize ?? 14}
+                        resolveImageSrc={resolveLiveImageSrc}
+                        placeholder={t("main.editor.contentPlaceholder", {
+                          defaultValue: "开始写作……",
+                        })}
+                      />
                     </div>
                   )}
                 </>

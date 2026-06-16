@@ -213,6 +213,7 @@
     "defaultView": {
       "edit": "編輯",
       "label": "預設檢視",
+      "live": "即時",
       "preview": "預覽",
       "split": "分欄"
     },
