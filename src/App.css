@@ -804,3 +804,61 @@ input::placeholder {
   user-select: none;
   pointer-events: none;
 }
+
+/* Code-block toolbar (language · copy · fold) anchored top-right of the block */
+.cm-md-code-block-first {
+  position: relative;
+}
+.cm-md-code-toolbar {
+  position: absolute;
+  top: 0.2em;
+  right: 0.5em;
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  z-index: 2;
+  user-select: none;
+}
+.cm-md-code-lang {
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  color: var(--color-ink-faint);
+  letter-spacing: 0.04em;
+}
+.cm-md-code-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--color-ink-ghost);
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0.65;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+.cm-md-code-btn:hover {
+  opacity: 1;
+  color: var(--color-ink-soft);
+  background: color-mix(in srgb, var(--color-paper-deep) 55%, transparent);
+}
+.cm-md-code-btn.is-copied {
+  color: var(--color-bamboo);
+  opacity: 1;
+}
+.cm-md-fold-placeholder {
+  display: inline-block;
+  margin: 0 0.5em;
+  padding: 0 0.5em;
+  color: var(--color-ink-ghost);
+  cursor: pointer;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-paper-deep) 40%, transparent);
+}
+.cm-md-fold-placeholder:hover {
+  color: var(--color-ink-soft);
+}

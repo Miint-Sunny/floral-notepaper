@@ -9,7 +9,20 @@ import {
 } from "@codemirror/view";
 import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage, markdownKeymap } from "@codemirror/lang-markdown";
+import { codeFolding } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
+
+const codeFoldingExtension = codeFolding({
+  placeholderDOM(_view, onclick) {
+    const el = document.createElement("span");
+    el.className = "cm-md-fold-placeholder";
+    el.textContent = "⋯";
+    el.title = "展开";
+    el.setAttribute("aria-label", "展开代码块");
+    el.onclick = onclick;
+    return el;
+  },
+});
 import { liveEditorTheme, liveHighlighting } from "./liveEditor/theme";
 import { livePreview } from "./liveEditor/livePreview";
 
@@ -80,6 +93,7 @@ export function LiveEditor({
           activeLineCompartment.current.of(activeHighlight === "line" ? highlightActiveLine() : []),
           EditorView.lineWrapping,
           markdown({ base: markdownLanguage, codeLanguages: languages }),
+          codeFoldingExtension,
           liveHighlighting,
           themeCompartment.current.of(liveEditorTheme(fontSize)),
           previewCompartment.current.of(makePreviewExtension()),
