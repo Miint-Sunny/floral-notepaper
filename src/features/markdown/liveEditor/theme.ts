@@ -168,8 +168,16 @@ export function liveEditorTheme(fontSize: number) {
       margin: "0.4em auto",
       borderRadius: "4px",
     },
+    ".cm-md-bullet, .cm-md-bullet-raw": {
+      display: "inline-block",
+      width: "1.3em",
+      textAlign: "center",
+    },
     ".cm-md-bullet": {
       color: "var(--color-bamboo)",
+    },
+    ".cm-md-bullet-raw": {
+      color: "var(--color-ink-ghost)",
     },
   });
 }

@@ -25,6 +25,7 @@ const strike = Decoration.mark({ class: "cm-md-strike" });
 const inlineCode = Decoration.mark({ class: "cm-md-inline-code" });
 const linkText = Decoration.mark({ class: "cm-md-link" });
 const fenceMark = Decoration.mark({ class: "cm-md-fence-mark" });
+const bulletRaw = Decoration.mark({ class: "cm-md-bullet-raw" });
 const quoteLine = Decoration.line({ class: "cm-md-quote" });
 const tableSourceLine = Decoration.line({ class: "cm-md-table-source" });
 const headingLine = [
@@ -223,10 +224,15 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
         }
 
         if (name === "ListMark") {
-          // Always render unordered markers as a round bullet (no active-line
-          // reveal) so the line never jumps horizontally when the cursor enters.
+          // On the active line show the raw marker (-, *, +) for consistency with
+          // other elements; otherwise render a round bullet. Both occupy the same
+          // fixed width so toggling never shifts the text horizontally.
           if (/^[-*+]$/.test(doc.sliceString(from, to))) {
-            decorations.push(Decoration.replace({ widget: new BulletWidget() }).range(from, to));
+            if (isActive(from, to)) {
+              decorations.push(bulletRaw.range(from, to));
+            } else {
+              decorations.push(Decoration.replace({ widget: new BulletWidget() }).range(from, to));
+            }
           }
           return undefined;
         }
