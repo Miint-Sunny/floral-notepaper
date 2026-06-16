@@ -39,7 +39,18 @@ export function liveEditorTheme(fontSize: number) {
       padding: "0 2px",
     },
     ".cm-gutters": {
-      display: "none",
+      backgroundColor: "transparent",
+      color: "var(--color-ink-ghost)",
+      border: "none",
+      borderRight: "1px solid color-mix(in srgb, var(--color-paper-deep) 70%, transparent)",
+      marginRight: "0.6em",
+    },
+    ".cm-lineNumbers .cm-gutterElement": {
+      color: "var(--color-ink-ghost)",
+      opacity: "0.55",
+      minWidth: "2.2em",
+      padding: "0 0.5em 0 0.6em",
+      fontVariantNumeric: "tabular-nums",
     },
     ".cm-activeLine": {
       backgroundColor: "transparent",

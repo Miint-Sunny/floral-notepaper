@@ -209,6 +209,16 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
             checked={config.splitScrollSync ?? true}
             onChange={(checked) => setConfigValue("splitScrollSync", checked)}
           />
+          <ToggleRow
+            label={t("settings.codeBlockLineNumbers", { defaultValue: "即时模式代码块行号" })}
+            checked={config.codeBlockLineNumbers ?? false}
+            onChange={(checked) => setConfigValue("codeBlockLineNumbers", checked)}
+          />
+          <ToggleRow
+            label={t("settings.editorLineNumbers", { defaultValue: "即时模式整篇行号栏" })}
+            checked={config.editorLineNumbers ?? false}
+            onChange={(checked) => setConfigValue("editorLineNumbers", checked)}
+          />
         </section>
 
         {/* 快捷键功能设置区域，与上方常规设置分开 */}

@@ -76,6 +76,10 @@ pub struct AppConfig {
     pub render_html_markdown: bool,
     #[serde(default = "default_split_scroll_sync")]
     pub split_scroll_sync: bool,
+    #[serde(default)]
+    pub code_block_line_numbers: bool,
+    #[serde(default)]
+    pub editor_line_numbers: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface_width: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

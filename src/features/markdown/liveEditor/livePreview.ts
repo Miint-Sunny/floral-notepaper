@@ -13,6 +13,8 @@ import {
 export interface LivePreviewOptions {
   /** Maps a markdown image src to a URL usable in an <img> tag. */
   resolveImageSrc: (src: string) => string;
+  /** Show 1-based line numbers inside fenced code blocks. */
+  showCodeLineNumbers?: boolean;
 }
 
 const LIST_LEVEL_INDENT_EM = 1.5;
@@ -161,6 +163,15 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
             if (l === startLine) classes.push("cm-md-code-block-first");
             if (l === endLine) classes.push("cm-md-code-block-last");
             decorations.push(Decoration.line({ class: classes.join(" ") }).range(line.from));
+            // Number only the code content lines, not the ``` fence lines.
+            if (options.showCodeLineNumbers && l > startLine && l < endLine) {
+              decorations.push(
+                Decoration.line({
+                  class: "cm-md-code-content",
+                  attributes: { "data-ln": String(l - startLine) },
+                }).range(line.from),
+              );
+            }
           }
           return undefined;
         }
