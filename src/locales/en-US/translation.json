@@ -213,6 +213,7 @@
     "defaultView": {
       "edit": "Edit",
       "label": "Default view",
+      "live": "Live",
       "preview": "Preview",
       "split": "Split"
     },

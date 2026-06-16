@@ -64,6 +64,7 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
     () => [
       { value: "edit", label: t("settings.defaultView.edit", { defaultValue: "编辑" }) },
       { value: "split", label: t("settings.defaultView.split", { defaultValue: "分栏" }) },
+      { value: "live", label: t("settings.defaultView.live", { defaultValue: "即时" }) },
       {
         value: "preview",
         label: t("settings.defaultView.preview", { defaultValue: "预览" }),

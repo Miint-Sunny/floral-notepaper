@@ -745,3 +745,44 @@ input::placeholder {
 :root[data-theme="dark"] .markdown-alert-caution .markdown-alert-title {
   color: #e87462;
 }
+
+/* ---- WYSIWYG live editor (CodeMirror) ---- */
+.cm-live-editor {
+  height: 100%;
+}
+.cm-live-editor .cm-editor {
+  height: 100%;
+}
+.cm-live-editor .cm-scroller {
+  scrollbar-width: thin;
+}
+
+/* Rendered table widget */
+.cm-md-table-wrap {
+  margin: 0.6em 0;
+  overflow-x: auto;
+  cursor: text;
+}
+.cm-md-table {
+  border-collapse: collapse;
+  font-size: 0.93em;
+  border: 1px solid color-mix(in srgb, var(--color-paper-deep) 60%, transparent);
+}
+.cm-md-table th,
+.cm-md-table td {
+  border: 1px solid color-mix(in srgb, var(--color-paper-deep) 50%, transparent);
+  padding: 0.35em 0.7em;
+  text-align: left;
+}
+.cm-md-table th {
+  font-weight: 600;
+  color: var(--color-ink);
+  background: color-mix(in srgb, var(--color-paper-warm) 60%, transparent);
+}
+.cm-md-table td {
+  color: var(--color-ink-soft);
+}
+.cm-md-table-source {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
