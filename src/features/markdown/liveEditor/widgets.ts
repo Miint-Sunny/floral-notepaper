@@ -1,4 +1,107 @@
 import { EditorView, WidgetType } from "@codemirror/view";
+import { foldEffect, foldedRanges, unfoldEffect } from "@codemirror/language";
+
+const COPY_ICON =
+  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const CHECK_ICON =
+  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+const CHEVRON_UP =
+  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>';
+const CHEVRON_DOWN =
+  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+
+function rangeFolded(view: EditorView, from: number, to: number): boolean {
+  let folded = false;
+  foldedRanges(view.state).between(from, to, () => {
+    folded = true;
+  });
+  return folded;
+}
+
+/**
+ * Top-right toolbar on a fenced code block: language · copy · fold/expand.
+ * `foldFrom..foldTo` is the range collapsed when folding (everything after the
+ * opening fence line); `codeFrom..codeTo` is the code text used for copy.
+ */
+export class CodeToolbarWidget extends WidgetType {
+  constructor(
+    readonly lang: string,
+    readonly foldFrom: number,
+    readonly foldTo: number,
+    readonly codeFrom: number,
+    readonly codeTo: number,
+    readonly folded: boolean,
+  ) {
+    super();
+  }
+  eq(other: CodeToolbarWidget) {
+    return (
+      other.lang === this.lang &&
+      other.foldFrom === this.foldFrom &&
+      other.foldTo === this.foldTo &&
+      other.codeFrom === this.codeFrom &&
+      other.codeTo === this.codeTo &&
+      other.folded === this.folded
+    );
+  }
+  toDOM(view: EditorView) {
+    const bar = document.createElement("div");
+    bar.className = "cm-md-code-toolbar";
+    bar.contentEditable = "false";
+    bar.setAttribute("aria-hidden", "true");
+
+    if (this.lang) {
+      const lang = document.createElement("span");
+      lang.className = "cm-md-code-lang";
+      lang.textContent = this.lang;
+      bar.appendChild(lang);
+    }
+
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "cm-md-code-btn";
+    copy.title = "复制";
+    copy.innerHTML = COPY_ICON;
+    copy.addEventListener("mousedown", (e) => e.preventDefault());
+    copy.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const text = view.state.doc.sliceString(this.codeFrom, this.codeTo);
+      void navigator.clipboard?.writeText(text).then(() => {
+        copy.innerHTML = CHECK_ICON;
+        copy.classList.add("is-copied");
+        window.setTimeout(() => {
+          copy.innerHTML = COPY_ICON;
+          copy.classList.remove("is-copied");
+        }, 1200);
+      });
+    });
+    bar.appendChild(copy);
+
+    const fold = document.createElement("button");
+    fold.type = "button";
+    fold.className = "cm-md-code-btn";
+    fold.title = this.folded ? "展开" : "折叠";
+    fold.innerHTML = this.folded ? CHEVRON_DOWN : CHEVRON_UP;
+    fold.addEventListener("mousedown", (e) => e.preventDefault());
+    fold.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (this.foldTo <= this.foldFrom) return;
+      view.dispatch({
+        effects: rangeFolded(view, this.foldFrom, this.foldTo)
+          ? unfoldEffect.of({ from: this.foldFrom, to: this.foldTo })
+          : foldEffect.of({ from: this.foldFrom, to: this.foldTo }),
+      });
+    });
+    bar.appendChild(fold);
+
+    return bar;
+  }
+  ignoreEvent() {
+    return true;
+  }
+}
 
 /** A round bullet replacing a `-` / `*` / `+` list marker. */
 export class BulletWidget extends WidgetType {

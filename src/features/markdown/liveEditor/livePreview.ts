@@ -1,10 +1,11 @@
 import { StateField, type EditorState, type Extension, type Range } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
-import { syntaxTree } from "@codemirror/language";
+import { foldEffect, foldedRanges, syntaxTree, unfoldEffect } from "@codemirror/language";
 import type { SyntaxNode } from "@lezer/common";
 import {
   BulletWidget,
   CheckboxWidget,
+  CodeToolbarWidget,
   HorizontalRuleWidget,
   ImageWidget,
   TableWidget,
@@ -208,6 +209,26 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
               );
             }
           }
+          // Top-right toolbar (language · copy · fold) anchored on the opening
+          // fence line, outside the foldable range so it survives folding.
+          const firstLine = doc.line(startLine);
+          const kids = directChildren(nodeRef.node);
+          const info = kids.find((k) => k.name === "CodeInfo");
+          const text = kids.find((k) => k.name === "CodeText");
+          const lang = info ? doc.sliceString(info.from, info.to).trim() : "";
+          const foldTo = Math.min(to, doc.length);
+          const codeFrom = text ? text.from : firstLine.to;
+          const codeTo = text ? text.to : foldTo;
+          let folded = false;
+          foldedRanges(state).between(firstLine.to, foldTo, () => {
+            folded = true;
+          });
+          decorations.push(
+            Decoration.widget({
+              widget: new CodeToolbarWidget(lang, firstLine.to, foldTo, codeFrom, codeTo, folded),
+              side: -1,
+            }).range(firstLine.from),
+          );
           return undefined;
         }
 
@@ -317,7 +338,10 @@ export function livePreview(options: LivePreviewOptions): Extension {
   return StateField.define<DecorationSet>({
     create: (state) => buildDecorations(state, options),
     update: (value, tr) => {
-      if (tr.docChanged || tr.selection) return buildDecorations(tr.state, options);
+      const foldChanged = tr.effects.some((e) => e.is(foldEffect) || e.is(unfoldEffect));
+      if (tr.docChanged || tr.selection || foldChanged) {
+        return buildDecorations(tr.state, options);
+      }
       return value;
     },
     provide: (field) => EditorView.decorations.from(field),
