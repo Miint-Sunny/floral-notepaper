@@ -210,6 +210,12 @@
     "autostart": "开机自启",
     "closeTitle": "关闭设置",
     "closeToTray": "关闭到托盘",
+    "activeHighlight": {
+      "block": "块",
+      "label": "即时模式高光当前行/块",
+      "line": "行",
+      "off": "关"
+    },
     "defaultView": {
       "edit": "编辑",
       "label": "默认视图",

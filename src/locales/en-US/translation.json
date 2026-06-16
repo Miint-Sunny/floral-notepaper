@@ -210,6 +210,12 @@
     "autostart": "Launch on Startup",
     "closeTitle": "Close Settings",
     "closeToTray": "Close to Tray",
+    "activeHighlight": {
+      "block": "Block",
+      "label": "Highlight active line/block (Live)",
+      "line": "Line",
+      "off": "Off"
+    },
     "defaultView": {
       "edit": "Edit",
       "label": "Default view",

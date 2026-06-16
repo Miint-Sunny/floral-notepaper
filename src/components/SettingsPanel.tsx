@@ -72,6 +72,14 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
     ],
     [t],
   );
+  const highlightModes = useMemo<Array<{ value: "off" | "line" | "block"; label: string }>>(
+    () => [
+      { value: "off", label: t("settings.activeHighlight.off", { defaultValue: "关" }) },
+      { value: "line", label: t("settings.activeHighlight.line", { defaultValue: "行" }) },
+      { value: "block", label: t("settings.activeHighlight.block", { defaultValue: "块" }) },
+    ],
+    [t],
+  );
   const backgroundFits = useMemo<Array<{ value: BackgroundFit; label: string }>>(
     () => [
       { value: "cover", label: t("settings.background.fit.cover", { defaultValue: "填充" }) },
@@ -455,6 +463,17 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
             options={viewModes}
             value={config.defaultViewMode}
             onChange={(v) => setConfigValue("defaultViewMode", v)}
+          />
+        </section>
+
+        <section className="space-y-2">
+          <label className="block text-[11px] font-body text-ink-faint">
+            {t("settings.activeHighlight.label", { defaultValue: "即时模式高光当前行/块" })}
+          </label>
+          <SlidingButtonGroup
+            options={highlightModes}
+            value={config.liveActiveHighlight ?? "off"}
+            onChange={(v) => setConfigValue("liveActiveHighlight", v)}
           />
         </section>
 

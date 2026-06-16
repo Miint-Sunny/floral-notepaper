@@ -3007,6 +3007,7 @@ export function MainWindow({
                         resolveImageSrc={resolveLiveImageSrc}
                         showCodeLineNumbers={settingsConfig?.codeBlockLineNumbers ?? false}
                         showEditorLineNumbers={settingsConfig?.editorLineNumbers ?? false}
+                        activeHighlight={settingsConfig?.liveActiveHighlight ?? "off"}
                         placeholder={t("main.editor.contentPlaceholder", {
                           defaultValue: "开始写作……",
                         })}

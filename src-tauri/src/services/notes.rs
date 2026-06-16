@@ -80,6 +80,8 @@ pub struct AppConfig {
     pub code_block_line_numbers: bool,
     #[serde(default)]
     pub editor_line_numbers: bool,
+    #[serde(default = "default_live_active_highlight")]
+    pub live_active_highlight: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface_width: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1079,6 +1081,7 @@ impl NoteStore {
             split_scroll_sync: true,
             code_block_line_numbers: false,
             editor_line_numbers: false,
+            live_active_highlight: "off".into(),
             surface_width: None,
             surface_height: None,
             toggle_visibility_shortcut: default_toggle_visibility_shortcut(),
@@ -1651,6 +1654,10 @@ fn default_split_scroll_sync() -> bool {
     true
 }
 
+fn default_live_active_highlight() -> String {
+    "off".into()
+}
+
 fn default_toggle_visibility_shortcut() -> String {
     String::new()
 }
@@ -1824,6 +1831,7 @@ mod tests {
             split_scroll_sync: true,
             code_block_line_numbers: false,
             editor_line_numbers: false,
+            live_active_highlight: "off".into(),
             surface_width: None,
             surface_height: None,
             toggle_visibility_shortcut: String::new(),

@@ -15,9 +15,29 @@ export interface LivePreviewOptions {
   resolveImageSrc: (src: string) => string;
   /** Show 1-based line numbers inside fenced code blocks. */
   showCodeLineNumbers?: boolean;
+  /** Highlight the whole markdown block the cursor sits in. */
+  activeBlock?: boolean;
 }
 
 const LIST_LEVEL_INDENT_EM = 1.5;
+const activeBlockLine = Decoration.line({ class: "cm-md-active-block" });
+// Block-level nodes whose extent defines "the current block" for highlighting.
+const BLOCK_NAMES = new Set([
+  "Paragraph",
+  "ATXHeading1",
+  "ATXHeading2",
+  "ATXHeading3",
+  "ATXHeading4",
+  "ATXHeading5",
+  "ATXHeading6",
+  "SetextHeading1",
+  "SetextHeading2",
+  "FencedCode",
+  "Blockquote",
+  "ListItem",
+  "Table",
+  "HorizontalRule",
+]);
 const hideMark = Decoration.replace({});
 const strong = Decoration.mark({ class: "cm-md-strong" });
 const em = Decoration.mark({ class: "cm-md-em" });
@@ -72,6 +92,20 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
     if (doc.sliceString(end, end + 1) === " ") end += 1;
     decorations.push(hideMark.range(from, end));
   };
+
+  // Highlight every line of the block the cursor currently sits in.
+  if (options.activeBlock) {
+    const pos = state.selection.main.head;
+    let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 0);
+    while (node && !BLOCK_NAMES.has(node.name)) node = node.parent;
+    if (node) {
+      const startLine = doc.lineAt(node.from).number;
+      const endLine = doc.lineAt(Math.min(node.to, doc.length)).number;
+      for (let l = startLine; l <= endLine; l++) {
+        decorations.push(activeBlockLine.range(doc.line(l).from));
+      }
+    }
+  }
 
   try {
     syntaxTree(state).iterate({

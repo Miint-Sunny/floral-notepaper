@@ -1,6 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Compartment, EditorState } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers, placeholder as cmPlaceholder } from "@codemirror/view";
+import {
+  EditorView,
+  highlightActiveLine,
+  keymap,
+  lineNumbers,
+  placeholder as cmPlaceholder,
+} from "@codemirror/view";
 import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage, markdownKeymap } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
@@ -17,6 +23,7 @@ export interface LiveEditorProps {
   resolveImageSrc?: (src: string) => string;
   showCodeLineNumbers?: boolean;
   showEditorLineNumbers?: boolean;
+  activeHighlight?: "off" | "line" | "block";
 }
 
 const identity = (src: string) => src;
@@ -31,6 +38,7 @@ export function LiveEditor({
   resolveImageSrc = identity,
   showCodeLineNumbers = false,
   showEditorLineNumbers = false,
+  activeHighlight = "off",
 }: LiveEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -38,6 +46,7 @@ export function LiveEditor({
   const previewCompartment = useRef(new Compartment());
   const editableCompartment = useRef(new Compartment());
   const lineNumbersCompartment = useRef(new Compartment());
+  const activeLineCompartment = useRef(new Compartment());
 
   // Keep latest callbacks/values accessible from CodeMirror without rebuilding.
   const onChangeRef = useRef(onChange);
@@ -46,11 +55,14 @@ export function LiveEditor({
   resolveImageSrcRef.current = resolveImageSrc;
   const showCodeLineNumbersRef = useRef(showCodeLineNumbers);
   showCodeLineNumbersRef.current = showCodeLineNumbers;
+  const activeHighlightRef = useRef(activeHighlight);
+  activeHighlightRef.current = activeHighlight;
 
   const makePreviewExtension = () =>
     livePreview({
       resolveImageSrc: (src) => resolveImageSrcRef.current(src),
       showCodeLineNumbers: showCodeLineNumbersRef.current,
+      activeBlock: activeHighlightRef.current === "block",
     });
 
   // Create the editor once on mount.
@@ -65,6 +77,7 @@ export function LiveEditor({
           keymap.of([...markdownKeymap, indentWithTab, ...defaultKeymap, ...historyKeymap]),
           history(),
           lineNumbersCompartment.current.of(showEditorLineNumbers ? lineNumbers() : []),
+          activeLineCompartment.current.of(activeHighlight === "line" ? highlightActiveLine() : []),
           EditorView.lineWrapping,
           markdown({ base: markdownLanguage, codeLanguages: languages }),
           liveHighlighting,
@@ -121,7 +134,7 @@ export function LiveEditor({
     });
     // makePreviewExtension reads the latest values via refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolveImageSrc, showCodeLineNumbers]);
+  }, [resolveImageSrc, showCodeLineNumbers, activeHighlight]);
 
   // React to read-only changes.
   useEffect(() => {
@@ -142,6 +155,17 @@ export function LiveEditor({
       ),
     });
   }, [showEditorLineNumbers]);
+
+  // Toggle active-line highlighting (block highlighting is handled in livePreview).
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: activeLineCompartment.current.reconfigure(
+        activeHighlight === "line" ? highlightActiveLine() : [],
+      ),
+    });
+  }, [activeHighlight]);
 
   return <div ref={hostRef} className="cm-live-editor h-full overflow-hidden" />;
 }
