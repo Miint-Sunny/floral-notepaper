@@ -61,19 +61,16 @@ function App() {
 
   useEffect(() => {
     if (activeView !== "main") return;
-    // Reveal the (initially hidden) main window only after the first frame has
-    // actually painted — two rAFs guarantee the browser has rendered React's
-    // first commit — so the transparent window never flashes white pre-paint.
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        void notifyMainWindowReady();
-      });
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
+    // Reveal the (initially hidden) main window as soon as React has committed
+    // its first render. The DOM is built and index.html has already painted the
+    // themed background, so revealing now shows content with no white flash.
+    //
+    // Do NOT gate this on requestAnimationFrame: rAF is suspended while the
+    // window is hidden, so its callback would never fire — the reveal would
+    // deadlock and only happen via the slow safety timer (~3s = "奇慢"). useEffect
+    // runs off React's scheduler (not the paint pipeline), so it fires promptly
+    // even while hidden.
+    void notifyMainWindowReady();
   }, [activeView]);
 
   useEffect(() => {
