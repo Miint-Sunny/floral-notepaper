@@ -363,8 +363,10 @@ export function MainWindow({
   const [viewMode, setViewMode] = useState<ViewMode>(
     normalizeViewMode(initialConfig?.defaultViewMode ?? "split"),
   );
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [outlineVisible, setOutlineVisible] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    initialConfig?.sidebarCollapsed ?? false,
+  );
+  const [outlineVisible, setOutlineVisible] = useState(initialConfig?.outlineVisible ?? false);
   const [activeOutlineSlug, setActiveOutlineSlug] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
@@ -406,8 +408,17 @@ export function MainWindow({
   // 会被挤到换行、内容高过 40px → 写死 top-10 会被压住。故实测工具栏真实高度作为悬浮层的 top。
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [toolbarHeight, setToolbarHeight] = useState(40);
-  const [sidebarWidth, setSidebarWidth] = useState(280);
+  const [sidebarWidth, setSidebarWidth] = useState(initialConfig?.sidebarWidth ?? 280);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [outlineWidth, setOutlineWidth] = useState(initialConfig?.outlineWidth ?? OUTLINE_WIDTH);
+  const [isResizingOutline, setIsResizingOutline] = useState(false);
+  // 实时镜像最新宽度，供拖拽结束(mouseup)时持久化读取（effect 闭包拿不到最新 state）。
+  const sidebarWidthRef = useRef(sidebarWidth);
+  sidebarWidthRef.current = sidebarWidth;
+  const outlineWidthRef = useRef(outlineWidth);
+  outlineWidthRef.current = outlineWidth;
+  const outlineColRef = useRef<HTMLDivElement>(null);
+  const outlineResizeStartLeft = useRef(0);
   const [splitRatio, setSplitRatio] = useState(0.5);
   const [isResizingSplit, setIsResizingSplit] = useState(false);
   const splitContainerRef = useRef<HTMLDivElement>(null);
@@ -796,6 +807,11 @@ export function MainWindow({
         setSettingsConfig(loadedConfig);
         setSavedDataDir(loadedConfig.dataDir);
         setViewMode(normalizeViewMode(loadedConfig.defaultViewMode));
+        // 从配置恢复 UI 布局状态（边栏/大纲 开合+宽度）。
+        setSidebarCollapsed(loadedConfig.sidebarCollapsed ?? false);
+        setSidebarWidth(loadedConfig.sidebarWidth ?? 280);
+        setOutlineVisible(loadedConfig.outlineVisible ?? false);
+        setOutlineWidth(loadedConfig.outlineWidth ?? OUTLINE_WIDTH);
         setNotes(loadedNotes);
         setCategories(loadedCategories);
         setCollapsedCategories(new Set(loadedCategories));
@@ -1396,6 +1412,21 @@ export function MainWindow({
 
   const settingsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const uiSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 持久化 UI 布局状态（边栏/大纲 开合+宽度）到配置文件。不复用 persistSettings——后者会把
+  // 视图重置回默认视图、并可能触发数据目录重载；这里只静默 saveConfig，不动 viewMode/dataDir。
+  const persistUiState = useCallback((patch: Partial<AppConfig>) => {
+    setSettingsConfig((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      if (uiSaveTimer.current) clearTimeout(uiSaveTimer.current);
+      uiSaveTimer.current = setTimeout(() => {
+        void saveConfig(next).catch(() => {});
+      }, 400);
+      return next;
+    });
+  }, []);
+
   const persistSettings = useCallback(
     (nextConfig: AppConfig) => {
       if (settingsSaveTimer.current) {
@@ -1852,7 +1883,10 @@ export function MainWindow({
       const newWidth = Math.min(Math.max(e.clientX, 180), 500);
       setSidebarWidth(newWidth);
     };
-    const onMouseUp = () => setIsResizingSidebar(false);
+    const onMouseUp = () => {
+      setIsResizingSidebar(false);
+      persistUiState({ sidebarWidth: Math.round(sidebarWidthRef.current) });
+    };
 
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
@@ -1862,7 +1896,33 @@ export function MainWindow({
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
     };
-  }, [isResizingSidebar]);
+  }, [isResizingSidebar, persistUiState]);
+
+  // 大纲栏拖拽改宽（镜像边栏）。宽度 = 鼠标 X − 大纲列左边缘（拖拽开始时实测、过程中不变）。
+  useEffect(() => {
+    if (!isResizingOutline) return;
+
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+
+    const onMouseMove = (e: globalThis.MouseEvent) => {
+      const width = Math.min(Math.max(e.clientX - outlineResizeStartLeft.current, 140), 420);
+      setOutlineWidth(width);
+    };
+    const onMouseUp = () => {
+      setIsResizingOutline(false);
+      persistUiState({ outlineWidth: Math.round(outlineWidthRef.current) });
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+  }, [isResizingOutline, persistUiState]);
 
   useEffect(() => {
     if (!isResizingSplit) return;
@@ -2823,10 +2883,13 @@ export function MainWindow({
           {/* Outline column. The inner div keeps a fixed width so its content
               doesn't reflow while the outer width animates on collapse. */}
           <div
-            className="border-r border-paper-deep/30 bg-paper/30 shrink-0 overflow-hidden transition-[width] duration-300"
-            style={{ width: outlineVisible ? OUTLINE_WIDTH : 0 }}
+            ref={outlineColRef}
+            className={`border-r border-paper-deep/30 bg-paper/30 shrink-0 overflow-hidden ${
+              isResizingOutline ? "" : "transition-[width] duration-300"
+            }`}
+            style={{ width: outlineVisible ? outlineWidth : 0 }}
           >
-            <div className="h-full" style={{ width: OUTLINE_WIDTH }}>
+            <div className="h-full" style={{ width: outlineWidth }}>
               <OutlinePanel
                 items={outlineItems}
                 activeSlug={outlineTracking ? activeOutlineSlug : null}
@@ -2835,6 +2898,22 @@ export function MainWindow({
             </div>
           </div>
 
+          {outlineVisible && (
+            <div
+              className={`w-1 shrink-0 cursor-col-resize group relative ${isResizingOutline ? "bg-bamboo/30" : "hover:bg-bamboo/20"} transition-colors`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                outlineResizeStartLeft.current =
+                  outlineColRef.current?.getBoundingClientRect().left ?? 0;
+                setIsResizingOutline(true);
+              }}
+            >
+              <div
+                className={`absolute inset-y-0 -left-1 -right-1 ${isResizingOutline ? "" : "group-hover:bg-bamboo/5"}`}
+              />
+            </div>
+          )}
+
           <div className="flex-1 flex flex-col min-w-0">
             <div
               ref={toolbarRef}
@@ -2842,7 +2921,11 @@ export function MainWindow({
             >
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  onClick={() => {
+                    const next = !sidebarCollapsed;
+                    setSidebarCollapsed(next);
+                    persistUiState({ sidebarCollapsed: next });
+                  }}
                   className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-ghost hover:text-ink-faint hover:bg-paper-warm transition-all cursor-pointer"
                   title={
                     sidebarCollapsed
@@ -2866,7 +2949,11 @@ export function MainWindow({
                 </button>
 
                 <button
-                  onClick={() => setOutlineVisible((value) => !value)}
+                  onClick={() => {
+                    const next = !outlineVisible;
+                    setOutlineVisible(next);
+                    persistUiState({ outlineVisible: next });
+                  }}
                   aria-pressed={outlineVisible}
                   aria-label={t("main.outline.title", { defaultValue: "大纲" })}
                   className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
