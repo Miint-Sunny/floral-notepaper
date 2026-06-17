@@ -108,6 +108,8 @@ const LiveEditor = lazy(() =>
 
 /** Width of the Outline column when expanded (px). */
 const OUTLINE_WIDTH = 220;
+// 工具栏窄于此值（px）时隐藏视图切换（编辑/分栏/即时/预览），避免被左侧按钮 + 设置面板挤压换行。
+const TOOLBAR_TOGGLE_MIN_WIDTH = 480;
 
 /** The heading anchor nearest the top of the scrolled preview container. */
 function activeSlugFromPreview(items: OutlineItem[], container: HTMLElement): string | null {
@@ -412,6 +414,8 @@ export function MainWindow({
   // 会被挤到换行、内容高过 40px → 写死 top-10 会被压住。故实测工具栏真实高度作为悬浮层的 top。
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [toolbarHeight, setToolbarHeight] = useState(40);
+  // 工具栏窄于此宽（左侧动作按钮 + 视图切换约需的宽度）时，隐藏视图切换避免被挤压换行。
+  const [toolbarNarrow, setToolbarNarrow] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(initialConfig?.sidebarWidth ?? 280);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [outlineWidth, setOutlineWidth] = useState(initialConfig?.outlineWidth ?? OUTLINE_WIDTH);
@@ -1031,11 +1035,15 @@ export function MainWindow({
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // 实测工具栏高度，供悬浮设置/关于面板从其正下方展开（窄窗下工具栏会变高）。
+  // 实测工具栏高度（供悬浮面板从其正下方展开）+ 宽度。窄到放不下视图切换时隐藏切换，
+  // 而不是让它换行被挤压（宽度判定不受隐藏影响，故不会抖动循环）。
   useEffect(() => {
     const el = toolbarRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const measure = () => setToolbarHeight(el.offsetHeight);
+    const measure = () => {
+      setToolbarHeight(el.offsetHeight);
+      setToolbarNarrow(el.clientWidth < TOOLBAR_TOGGLE_MIN_WIDTH);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
@@ -3218,12 +3226,14 @@ export function MainWindow({
                 )}
               </div>
 
-              <SlidingButtonGroup
-                options={viewModeOptions}
-                value={viewMode}
-                onChange={setViewMode}
-                buttonClassName="px-3 py-1"
-              />
+              {!toolbarNarrow && (
+                <SlidingButtonGroup
+                  options={viewModeOptions}
+                  value={viewMode}
+                  onChange={setViewMode}
+                  buttonClassName="px-3 py-1"
+                />
+              )}
             </div>
 
             <div
