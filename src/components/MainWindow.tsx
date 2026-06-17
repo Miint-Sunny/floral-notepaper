@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -6,8 +6,7 @@ import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AboutPanel } from "./AboutPanel";
 import { exportMarkdownNote, importMarkdownNotes } from "../features/importExport/api";
-import { MarkdownPreview } from "../features/markdown/MarkdownPreview";
-import { LiveEditor, type LiveEditorHandle } from "../features/markdown/LiveEditor";
+import type { LiveEditorHandle } from "../features/markdown/LiveEditor";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { activeHeadingByLine, parseOutline, type OutlineItem } from "../features/markdown/outline";
 import { showToast } from "./Toast";
@@ -97,6 +96,15 @@ import {
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 type SidePanelMode = "about" | "settings";
+
+// 重渲染器按视图懒加载：默认「分栏」用 textarea + 预览，启动时不解析即时编辑器(CM6)；
+// 切到对应视图时才拉取各自的 chunk。两者依赖完全不相交（CM6 ⟂ react-markdown/katex/mermaid）。
+const MarkdownPreview = lazy(() =>
+  import("../features/markdown/MarkdownPreview").then((m) => ({ default: m.MarkdownPreview })),
+);
+const LiveEditor = lazy(() =>
+  import("../features/markdown/LiveEditor").then((m) => ({ default: m.LiveEditor })),
+);
 
 /** Width of the Outline column when expanded (px). */
 const OUTLINE_WIDTH = 220;
@@ -3217,39 +3225,43 @@ export function MainWindow({
                           viewMode === "preview" ? "pt-3" : "pt-1"
                         }`}
                       >
-                        <MarkdownPreview
-                          content={content}
-                          fontSize={settingsConfig?.fontSize ?? 14}
-                          renderHtml={settingsConfig?.renderHtmlMarkdown ?? false}
-                          imageBaseDir={imageBaseDir ?? undefined}
-                        />
+                        <Suspense fallback={null}>
+                          <MarkdownPreview
+                            content={content}
+                            fontSize={settingsConfig?.fontSize ?? 14}
+                            renderHtml={settingsConfig?.renderHtmlMarkdown ?? false}
+                            imageBaseDir={imageBaseDir ?? undefined}
+                          />
+                        </Suspense>
                       </div>
                     </div>
                   )}
 
                   {viewMode === "live" && (
                     <div className="flex flex-col min-h-0 min-w-0 flex-1 px-6 pt-3 pb-2">
-                      <LiveEditor
-                        ref={liveEditorRef}
-                        value={content}
-                        onChange={(next) => {
-                          setContent(next);
-                          markDirty();
-                        }}
-                        onCursorLine={(line) => {
-                          if (outlineTracking) {
-                            setActiveOutlineSlug(activeHeadingByLine(outlineItems, line));
-                          }
-                        }}
-                        fontSize={settingsConfig?.fontSize ?? 14}
-                        resolveImageSrc={resolveLiveImageSrc}
-                        showCodeLineNumbers={settingsConfig?.codeBlockLineNumbers ?? false}
-                        showEditorLineNumbers={settingsConfig?.editorLineNumbers ?? false}
-                        activeHighlight={settingsConfig?.liveActiveHighlight ?? "off"}
-                        placeholder={t("main.editor.contentPlaceholder", {
-                          defaultValue: "开始写作……",
-                        })}
-                      />
+                      <Suspense fallback={null}>
+                        <LiveEditor
+                          ref={liveEditorRef}
+                          value={content}
+                          onChange={(next) => {
+                            setContent(next);
+                            markDirty();
+                          }}
+                          onCursorLine={(line) => {
+                            if (outlineTracking) {
+                              setActiveOutlineSlug(activeHeadingByLine(outlineItems, line));
+                            }
+                          }}
+                          fontSize={settingsConfig?.fontSize ?? 14}
+                          resolveImageSrc={resolveLiveImageSrc}
+                          showCodeLineNumbers={settingsConfig?.codeBlockLineNumbers ?? false}
+                          showEditorLineNumbers={settingsConfig?.editorLineNumbers ?? false}
+                          activeHighlight={settingsConfig?.liveActiveHighlight ?? "off"}
+                          placeholder={t("main.editor.contentPlaceholder", {
+                            defaultValue: "开始写作……",
+                          })}
+                        />
+                      </Suspense>
                     </div>
                   )}
                 </>

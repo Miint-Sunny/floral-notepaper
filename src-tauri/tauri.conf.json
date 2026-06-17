@@ -35,14 +35,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "app",
-      "dmg",
-      "nsis",
-      "deb",
-      "rpm",
-      "appimage"
-    ],
+    "targets": ["app", "dmg", "nsis", "deb", "rpm", "appimage"],
     "linux": {
       "appimage": {
         "bundleMediaFramework": false
@@ -55,9 +48,7 @@
     "windows": {
       "nsis": {
         "installMode": "both",
-        "languages": [
-          "SimpChinese"
-        ],
+        "languages": ["SimpChinese"],
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
         "installerHooks": "nsis-hooks.nsh"
@@ -65,18 +56,13 @@
     },
     "fileAssociations": [
       {
-        "ext": [
-          "md",
-          "markdown"
-        ],
+        "ext": ["md", "markdown"],
         "name": "Markdown Document",
         "description": "Markdown document file",
         "role": "Editor"
       },
       {
-        "ext": [
-          "txt"
-        ],
+        "ext": ["txt"],
         "name": "Text Document",
         "description": "Plain text file",
         "role": "Editor"

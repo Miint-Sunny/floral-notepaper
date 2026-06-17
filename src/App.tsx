@@ -1,10 +1,15 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import "./App.css";
 import { ContextMenuProvider } from "./components/ContextMenu";
 import { MainWindow } from "./components/MainWindow";
-import { NotePad } from "./components/NotePad";
-import { TileShowcase } from "./components/TileShowcase";
 import { ToastContainer } from "./components/Toast";
+
+// 次要窗口（小窗/磁贴）按路由懒加载，避免主窗口启动时把它们（及其经 Tile 牵连的
+// MarkdownPreview 重栈）一起 eager 进包。
+const NotePad = lazy(() => import("./components/NotePad").then((m) => ({ default: m.NotePad })));
+const TileShowcase = lazy(() =>
+  import("./components/TileShowcase").then((m) => ({ default: m.TileShowcase })),
+);
 import { tabToIndentListener } from "indent-textarea";
 import { getConfig } from "./features/settings/api";
 import { applyTheme, watchSystemTheme } from "./features/settings/theme";
@@ -83,10 +88,14 @@ function App() {
       <div className="app-window-shell h-screen font-body text-ink overflow-hidden">
         {activeView === "main" ? (
           <MainWindow />
-        ) : activeView === "notepad" ? (
-          <NotePad initialNoteId={route.noteId} />
         ) : (
-          <TileShowcase noteId={route.noteId} />
+          <Suspense fallback={null}>
+            {activeView === "notepad" ? (
+              <NotePad initialNoteId={route.noteId} />
+            ) : (
+              <TileShowcase noteId={route.noteId} />
+            )}
+          </Suspense>
         )}
         <ToastContainer />
       </div>
