@@ -327,10 +327,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Set version & disable signing
+      - name: Set version
         run: |
           ver="$(echo '${{ github.event.inputs.version }}' | sed 's/^v//')"
-          node scripts/set-version.mjs "$ver" --disable-macos-signing
+          node scripts/set-version.mjs "$ver"
 
       - name: Build
         run: npm run tauri build -- --target x86_64-apple-darwin
@@ -372,10 +372,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Set version & disable signing
+      - name: Set version
         run: |
           ver="$(echo '${{ github.event.inputs.version }}' | sed 's/^v//')"
-          node scripts/set-version.mjs "$ver" --disable-macos-signing
+          node scripts/set-version.mjs "$ver"
 
       - name: Build
         run: npm run tauri build -- --target aarch64-apple-darwin
