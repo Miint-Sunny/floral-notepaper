@@ -7,7 +7,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AboutPanel } from "./AboutPanel";
 import { exportMarkdownNote, importMarkdownNote } from "../features/importExport/api";
 import { MarkdownPreview } from "../features/markdown/MarkdownPreview";
-import { LiveEditor } from "../features/markdown/LiveEditor";
+import { LiveEditor, type LiveEditorHandle } from "../features/markdown/LiveEditor";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { parseOutline, type OutlineItem } from "../features/markdown/outline";
 import { showToast } from "./Toast";
@@ -382,6 +382,7 @@ export function MainWindow({
   const [categoryMenuConfirmDelete, setCategoryMenuConfirmDelete] = useState(false);
   const [categoryMenuHoverSuppressed, setCategoryMenuHoverSuppressed] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const liveEditorRef = useRef<LiveEditorHandle>(null);
   const windowLabelRef = useRef("main");
   const previewScrollRef = useRef<HTMLDivElement>(null);
   const blockOffsets = useRef<number[]>([]);
@@ -586,11 +587,15 @@ export function MainWindow({
   const charCount = useMemo(() => countNoteChars(content), [content]);
   const outlineItems = useMemo(() => parseOutline(content), [content]);
 
-  // Jump to a heading from the outline. Pure edit mode scrolls the source
-  // textarea to the heading's line; preview/split scroll the rendered anchor
-  // (same path as the app's in-content heading links).
+  // Jump to a heading from the outline. Live mode scrolls the CodeMirror editor
+  // to the source line; pure edit mode scrolls the source textarea to that line;
+  // preview/split scroll the rendered anchor (same path as in-content heading links).
   const handleOutlineSelect = useCallback(
     (item: OutlineItem) => {
+      if (viewMode === "live") {
+        liveEditorRef.current?.scrollToLine(item.line + 1);
+        return;
+      }
       if (viewMode === "edit") {
         const textarea = contentRef.current;
         if (!textarea) return;
@@ -3070,6 +3075,7 @@ export function MainWindow({
                   {viewMode === "live" && (
                     <div className="flex flex-col min-h-0 min-w-0 flex-1 px-6 pt-3 pb-2">
                       <LiveEditor
+                        ref={liveEditorRef}
                         value={content}
                         onChange={(next) => {
                           setContent(next);

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Compartment, EditorState } from "@codemirror/state";
 import {
   EditorView,
@@ -39,22 +39,44 @@ export interface LiveEditorProps {
   activeHighlight?: "off" | "line" | "block";
 }
 
+export interface LiveEditorHandle {
+  /** Scroll the given 1-based source line to the top of the viewport. */
+  scrollToLine: (line: number) => void;
+}
+
 const identity = (src: string) => src;
 
-export function LiveEditor({
-  value,
-  onChange,
-  fontSize = 14,
-  placeholder,
-  readOnly = false,
-  autoFocus = false,
-  resolveImageSrc = identity,
-  showCodeLineNumbers = false,
-  showEditorLineNumbers = false,
-  activeHighlight = "off",
-}: LiveEditorProps) {
+export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function LiveEditor(
+  {
+    value,
+    onChange,
+    fontSize = 14,
+    placeholder,
+    readOnly = false,
+    autoFocus = false,
+    resolveImageSrc = identity,
+    showCodeLineNumbers = false,
+    showEditorLineNumbers = false,
+    activeHighlight = "off",
+  },
+  ref,
+) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToLine(line: number) {
+        const view = viewRef.current;
+        if (!view) return;
+        const lineNumber = Math.min(Math.max(Math.trunc(line), 1), view.state.doc.lines);
+        const pos = view.state.doc.line(lineNumber).from;
+        view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: "start" }) });
+      },
+    }),
+    [],
+  );
   const themeCompartment = useRef(new Compartment());
   const previewCompartment = useRef(new Compartment());
   const editableCompartment = useRef(new Compartment());
@@ -182,4 +204,4 @@ export function LiveEditor({
   }, [activeHighlight]);
 
   return <div ref={hostRef} className="cm-live-editor h-full overflow-hidden" />;
-}
+});
