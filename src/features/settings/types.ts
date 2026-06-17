@@ -32,6 +32,13 @@ export interface AppConfig {
   editorLineNumbers: boolean;
   liveActiveHighlight: "off" | "line" | "block";
   outlineFollow: boolean;
+  sidebarCollapsed: boolean;
+  sidebarWidth: number;
+  outlineVisible: boolean;
+  outlineWidth: number;
+  sidebarZoom: number;
+  outlineZoom: number;
+  codeWrap: boolean;
   surfaceWidth?: number;
   surfaceHeight?: number;
   toggleVisibilityShortcut: string;

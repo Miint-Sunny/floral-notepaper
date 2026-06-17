@@ -56,6 +56,13 @@ describe("settings api", () => {
       editorLineNumbers: false,
       liveActiveHighlight: "off",
       outlineFollow: true,
+      sidebarCollapsed: false,
+      sidebarWidth: 280,
+      outlineVisible: false,
+      outlineWidth: 240,
+      sidebarZoom: 1,
+      outlineZoom: 1,
+      codeWrap: true,
       openAtCursor: true,
     };
     mockedInvoke.mockResolvedValue(config);
@@ -94,6 +101,13 @@ describe("settings api", () => {
       editorLineNumbers: false,
       liveActiveHighlight: "off",
       outlineFollow: true,
+      sidebarCollapsed: false,
+      sidebarWidth: 280,
+      outlineVisible: false,
+      outlineWidth: 240,
+      sidebarZoom: 1,
+      outlineZoom: 1,
+      codeWrap: true,
       openAtCursor: true,
     };
     mockedInvoke.mockResolvedValue(config);

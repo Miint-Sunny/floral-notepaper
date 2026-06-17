@@ -88,6 +88,22 @@ pub struct AppConfig {
     pub live_active_highlight: String,
     #[serde(default = "default_outline_follow")]
     pub outline_follow: bool,
+    // UI 布局状态（持久化走配置文件）：边栏/大纲的开合、宽度、内容缩放。
+    #[serde(default)]
+    pub sidebar_collapsed: bool,
+    #[serde(default = "default_sidebar_width")]
+    pub sidebar_width: u32,
+    #[serde(default)]
+    pub outline_visible: bool,
+    #[serde(default = "default_outline_width")]
+    pub outline_width: u32,
+    #[serde(default = "default_panel_zoom")]
+    pub sidebar_zoom: f64,
+    #[serde(default = "default_panel_zoom")]
+    pub outline_zoom: f64,
+    // 预览代码块自动换行（默认开）。
+    #[serde(default = "default_code_wrap")]
+    pub code_wrap: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface_width: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1091,6 +1107,13 @@ impl NoteStore {
             editor_line_numbers: false,
             live_active_highlight: "off".into(),
             outline_follow: true,
+            sidebar_collapsed: false,
+            sidebar_width: 280,
+            outline_visible: false,
+            outline_width: 240,
+            sidebar_zoom: 1.0,
+            outline_zoom: 1.0,
+            code_wrap: true,
             surface_width: None,
             surface_height: None,
             toggle_visibility_shortcut: default_toggle_visibility_shortcut(),
@@ -1671,6 +1694,22 @@ fn default_outline_follow() -> bool {
     true
 }
 
+fn default_sidebar_width() -> u32 {
+    280
+}
+
+fn default_outline_width() -> u32 {
+    240
+}
+
+fn default_panel_zoom() -> f64 {
+    1.0
+}
+
+fn default_code_wrap() -> bool {
+    true
+}
+
 fn default_toggle_visibility_shortcut() -> String {
     String::new()
 }
@@ -1850,6 +1889,13 @@ mod tests {
             editor_line_numbers: false,
             live_active_highlight: "off".into(),
             outline_follow: true,
+            sidebar_collapsed: false,
+            sidebar_width: 280,
+            outline_visible: false,
+            outline_width: 240,
+            sidebar_zoom: 1.0,
+            outline_zoom: 1.0,
+            code_wrap: true,
             surface_width: None,
             surface_height: None,
             toggle_visibility_shortcut: String::new(),
