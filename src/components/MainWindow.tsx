@@ -2349,7 +2349,14 @@ export function MainWindow({
             className="border-r border-paper-deep/30 bg-paper/40 shrink-0 overflow-hidden transition-[width] duration-[600ms]"
             style={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
           >
-            <div className="flex flex-col h-full" style={{ width: `${sidebarWidth}px` }}>
+            <div
+              className="flex flex-col h-full"
+              style={{
+                // 列宽不变、只缩放内容：内层逻辑宽 = 列宽/缩放，zoom 放大后回到列宽。
+                width: `${sidebarWidth / (settingsConfig?.sidebarZoom ?? 1)}px`,
+                zoom: settingsConfig?.sidebarZoom ?? 1,
+              }}
+            >
               <div className="px-3 pt-3 pb-2 shrink-0">
                 <div className="flex items-center gap-2 px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 focus-within:border-bamboo/30 focus-within:bg-cloud transition-all">
                   <svg
@@ -2889,7 +2896,13 @@ export function MainWindow({
             }`}
             style={{ width: outlineVisible ? outlineWidth : 0 }}
           >
-            <div className="h-full" style={{ width: outlineWidth }}>
+            <div
+              className="h-full"
+              style={{
+                width: outlineWidth / (settingsConfig?.outlineZoom ?? 1),
+                zoom: settingsConfig?.outlineZoom ?? 1,
+              }}
+            >
               <OutlinePanel
                 items={outlineItems}
                 activeSlug={outlineTracking ? activeOutlineSlug : null}

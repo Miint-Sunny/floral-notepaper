@@ -483,7 +483,9 @@
       "openAtCursor": "使用快捷键唤出时，小窗出现在当前鼠标附近",
       "codeWrap": "预览/即时中长代码行自动换行；关闭则改为横向滚动"
     },
-    "codeWrap": "代码块自动换行"
+    "codeWrap": "代码块自动换行",
+    "sidebarZoom": "边栏缩放",
+    "outlineZoom": "大纲缩放"
   },
   "tile": {
     "empty": "空"

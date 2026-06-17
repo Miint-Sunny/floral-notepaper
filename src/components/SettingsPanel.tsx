@@ -147,6 +147,16 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
               onChange={(value) => setConfigValue("locale", value)}
             />
           </div>
+          <LabeledRange
+            label={t("settings.sidebarZoom", { defaultValue: "边栏缩放" })}
+            value={config.sidebarZoom ?? 1}
+            min={0.8}
+            max={1.5}
+            step={0.05}
+            suffix="×"
+            valueWidth="w-12"
+            onChange={(value) => setConfigValue("sidebarZoom", Math.round(value * 100) / 100)}
+          />
         </section>
 
         {/* 外观：应用主题 */}
@@ -297,6 +307,16 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
             })}
             checked={config.outlineFollow ?? true}
             onChange={(checked) => setConfigValue("outlineFollow", checked)}
+          />
+          <LabeledRange
+            label={t("settings.outlineZoom", { defaultValue: "大纲缩放" })}
+            value={config.outlineZoom ?? 1}
+            min={0.8}
+            max={1.5}
+            step={0.05}
+            suffix="×"
+            valueWidth="w-12"
+            onChange={(value) => setConfigValue("outlineZoom", Math.round(value * 100) / 100)}
           />
         </section>
 

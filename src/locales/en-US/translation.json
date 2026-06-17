@@ -483,7 +483,9 @@
       "openAtCursor": "The quick window opens near the cursor when summoned by shortcut",
       "codeWrap": "Wrap long code lines in preview/live; off = horizontal scroll"
     },
-    "codeWrap": "Code block wrapping"
+    "codeWrap": "Code block wrapping",
+    "sidebarZoom": "Sidebar zoom",
+    "outlineZoom": "Outline zoom"
   },
   "tile": {
     "empty": "Empty"

@@ -464,7 +464,9 @@
       "openAtCursor": "使用快捷鍵喚出時，小窗出現在目前滑鼠附近",
       "codeWrap": "預覽/即時中長程式碼行自動換行；關閉則改為橫向捲動"
     },
-    "codeWrap": "程式碼區塊自動換行"
+    "codeWrap": "程式碼區塊自動換行",
+    "sidebarZoom": "邊欄縮放",
+    "outlineZoom": "大綱縮放"
   },
   "tile": {
     "empty": "空"
