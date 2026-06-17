@@ -2357,7 +2357,95 @@ export function MainWindow({
                 zoom: settingsConfig?.sidebarZoom ?? 1,
               }}
             >
-              <div className="px-3 pt-3 pb-2 shrink-0">
+              {/* 计数栏 + 操作图标：新建笔记(文件+) / 导入(↓) / 新建分类(文件夹+)，图标各异以区分 */}
+              <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-1.5 shrink-0">
+                <span className="text-[10px] text-ink-ghost font-mono tracking-wider uppercase truncate">
+                  {t("common.noteCount", {
+                    count: filteredNotes.length,
+                    defaultValue: "{{count}} 篇笔记",
+                  })}
+                  {externalFiles.length > 0
+                    ? ` · ${t("common.externalFileCount", {
+                        count: externalFiles.length,
+                        defaultValue: "{{count}} 个外部文件",
+                      })}`
+                    : ""}
+                </span>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <button
+                    onClick={handleNewNote}
+                    className="w-6 h-6 flex items-center justify-center rounded-md text-bamboo hover:bg-bamboo-mist/60 transition-colors cursor-pointer"
+                    title={t("main.sidebar.newNote", { defaultValue: "新建笔记" })}
+                    aria-label={t("main.sidebar.newNote", { defaultValue: "新建笔记" })}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                      <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
+                      <path d="M9 14h6M12 11v6" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => void handleImportNote()}
+                    className="w-6 h-6 flex items-center justify-center rounded-md text-ink-ghost hover:text-bamboo hover:bg-bamboo-mist/50 transition-colors cursor-pointer"
+                    title={t("main.sidebar.importMarkdown", { defaultValue: "导入 Markdown" })}
+                    aria-label={t("main.sidebar.importMarkdown", { defaultValue: "导入 Markdown" })}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 3v12" />
+                      <path d="m7 10 5 5 5-5" />
+                      <path d="M5 21h14" />
+                    </svg>
+                  </button>
+                  <button
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      if (showCategoryInput && categoryInputValue.trim()) {
+                        void handleCreateCategory();
+                        return;
+                      }
+                      setShowCategoryInput(true);
+                    }}
+                    className="w-6 h-6 flex items-center justify-center rounded-md text-ink-ghost hover:text-bamboo hover:bg-bamboo-mist/50 transition-colors cursor-pointer"
+                    title={t("main.category.new", { defaultValue: "新建分类" })}
+                    aria-label={t("main.category.new", { defaultValue: "新建分类" })}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 7.5a2 2 0 0 1 2-2h3.6a2 2 0 0 1 1.7.9l.7 1.1a2 2 0 0 0 1.7.9H19a2 2 0 0 1 2 2v7.1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <path d="M9 14h6M12 11v6" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* 搜索：移到计数栏下方 */}
+              <div className="px-3 pb-2 shrink-0">
                 <div className="flex items-center gap-2 px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 focus-within:border-bamboo/30 focus-within:bg-cloud transition-all">
                   <svg
                     width="13"
@@ -2399,86 +2487,6 @@ export function MainWindow({
                     </button>
                   )}
                 </div>
-              </div>
-
-              <div className="px-3 pb-2 shrink-0 space-y-1">
-                <button
-                  onClick={handleNewNote}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-body text-bamboo hover:bg-bamboo-mist/60 transition-all cursor-pointer group"
-                >
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    className="group-hover:rotate-90 transition-transform duration-200"
-                  >
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                  <span>{t("main.sidebar.newNote", { defaultValue: "新建笔记" })}</span>
-                </button>
-                <button
-                  onClick={() => void handleImportNote()}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-body text-ink-faint hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer group"
-                >
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 3v12" />
-                    <path d="m7 10 5 5 5-5" />
-                    <path d="M5 21h14" />
-                  </svg>
-                  <span>{t("main.sidebar.importMarkdown", { defaultValue: "导入 Markdown" })}</span>
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between px-5 pb-1.5 shrink-0">
-                <span className="text-[10px] text-ink-ghost font-mono tracking-wider uppercase">
-                  {t("common.noteCount", {
-                    count: filteredNotes.length,
-                    defaultValue: "{{count}} 篇笔记",
-                  })}
-                  {externalFiles.length > 0
-                    ? ` · ${t("common.externalFileCount", {
-                        count: externalFiles.length,
-                        defaultValue: "{{count}} 个外部文件",
-                      })}`
-                    : ""}
-                </span>
-                <button
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    if (showCategoryInput && categoryInputValue.trim()) {
-                      void handleCreateCategory();
-                      return;
-                    }
-                    setShowCategoryInput(true);
-                  }}
-                  className="text-[10px] text-ink-ghost hover:text-bamboo transition-colors cursor-pointer"
-                  title={t("main.category.new", { defaultValue: "新建分类" })}
-                >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                </button>
               </div>
 
               {showCategoryInput && (
