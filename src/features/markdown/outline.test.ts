@@ -5,9 +5,9 @@ describe("parseOutline", () => {
   test("extracts heading level, text and zero-based line", () => {
     const items = parseOutline("# Title\n\nsome text\n\n## Section\n### Sub");
     expect(items).toEqual([
-      { level: 1, text: "Title", slug: "title", line: 0 },
-      { level: 2, text: "Section", slug: "section", line: 4 },
-      { level: 3, text: "Sub", slug: "sub", line: 5 },
+      { level: 1, text: "Title", slug: "title", line: 0, from: 0 },
+      { level: 2, text: "Section", slug: "section", line: 4, from: 20 },
+      { level: 3, text: "Sub", slug: "sub", line: 5, from: 31 },
     ]);
   });
 

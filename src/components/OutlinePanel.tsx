@@ -25,11 +25,11 @@ export function OutlinePanel({ items, activeSlug, onSelect }: OutlinePanelProps)
         </div>
       ) : (
         <nav className="flex-1 overflow-y-auto py-2">
-          {items.map((item, index) => {
+          {items.map((item) => {
             const active = activeSlug != null && item.slug === activeSlug;
             return (
               <button
-                key={`${item.slug}-${index}`}
+                key={item.slug}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => onSelect(item)}
                 title={item.text}

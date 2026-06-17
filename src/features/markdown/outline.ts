@@ -7,8 +7,10 @@ export interface OutlineItem {
   text: string;
   /** Anchor id, identical to what `rehype-slug` produces in the preview. */
   slug: string;
-  /** Zero-based source line index, used to scroll the editor textarea. */
+  /** Zero-based source line index, used to scroll the editor by line. */
   line: number;
+  /** Character offset of the heading's line start, used to place the caret. */
+  from: number;
 }
 
 /**
@@ -40,9 +42,12 @@ export function parseOutline(content: string): OutlineItem[] {
   const slugger = new GithubSlugger();
   const items: OutlineItem[] = [];
   let fence: string | null = null;
+  let offset = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const from = offset;
+    offset += line.length + 1; // advance past this line (and its "\n") on every path
     const trimmed = line.trim();
 
     // Toggle in/out of fenced code blocks (``` or ~~~).
@@ -67,6 +72,7 @@ export function parseOutline(content: string): OutlineItem[] {
       text,
       slug: slugger.slug(text),
       line: i,
+      from,
     });
   }
 

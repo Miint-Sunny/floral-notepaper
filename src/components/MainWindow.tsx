@@ -93,6 +93,9 @@ import {
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 type SidePanelMode = "about" | "settings";
 
+/** Width of the Outline column when expanded (px). */
+const OUTLINE_WIDTH = 220;
+
 interface NoteMenuState {
   x: number;
   y: number;
@@ -599,21 +602,17 @@ export function MainWindow({
       if (viewMode === "edit") {
         const textarea = contentRef.current;
         if (!textarea) return;
-        const offset = content
-          .split("\n")
-          .slice(0, item.line)
-          .reduce((sum, l) => sum + l.length + 1, 0);
         const lineHeight =
           parseFloat(getComputedStyle(textarea).lineHeight) ||
           (settingsConfig?.fontSize ?? 14) * 1.9;
-        textarea.setSelectionRange(offset, offset);
+        textarea.setSelectionRange(item.from, item.from);
         textarea.scrollTop = Math.max(0, item.line * lineHeight - lineHeight);
         return;
       }
       const target = previewScrollRef.current?.querySelector(`#${CSS.escape(item.slug)}`);
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
     },
-    [viewMode, content, settingsConfig?.fontSize],
+    [viewMode, settingsConfig?.fontSize],
   );
 
   const applyNote = useCallback(
@@ -2681,11 +2680,13 @@ export function MainWindow({
             </div>
           )}
 
+          {/* Outline column. The inner div keeps a fixed width so its content
+              doesn't reflow while the outer width animates on collapse. */}
           <div
             className="border-r border-paper-deep/30 bg-paper/30 shrink-0 overflow-hidden transition-[width] duration-300"
-            style={{ width: outlineVisible ? 220 : 0 }}
+            style={{ width: outlineVisible ? OUTLINE_WIDTH : 0 }}
           >
-            <div className="h-full" style={{ width: 220 }}>
+            <div className="h-full" style={{ width: OUTLINE_WIDTH }}>
               <OutlinePanel items={outlineItems} onSelect={handleOutlineSelect} />
             </div>
           </div>
