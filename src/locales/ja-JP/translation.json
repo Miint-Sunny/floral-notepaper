@@ -138,6 +138,12 @@
       "quickNotepad": "クイックウィンドウ",
       "restore": "元のサイズに戻す",
       "settings": "設定"
+    },
+    "outline": {
+      "title": "アウトライン",
+      "show": "アウトラインを表示",
+      "hide": "アウトラインを隠す",
+      "empty": "見出しがありません"
     }
   },
   "noteMenu": {
@@ -189,7 +195,8 @@
       "edit": "編集",
       "label": "デフォルトの表示モード",
       "preview": "プレビュー",
-      "split": "分割画面"
+      "split": "分割画面",
+      "live": "ライブ"
     },
     "fontSize": {
       "editor": "エディタのフォントサイズ",
@@ -224,7 +231,8 @@
       "forQuickNote": "クイックメモウィンドウを開くためのキー",
       "needsModifier": "ショートカットには Ctrl、Alt、または Win/Cmd キーを含める必要があります",
       "notSet": "未設定",
-      "pressHint": "キーを押して割り当てます。Delete でクリア。"
+      "pressHint": "キーを押して割り当てます。Delete でクリア。",
+      "clear": "クリア"
     },
     "theme": {
       "dark": "ダーク",
@@ -257,7 +265,19 @@
         "contain": "全体表示",
         "repeat": "リピート"
       }
-    }
+    },
+    "activeHighlight": {
+      "label": "ライブモードで現在の行/ブロックをハイライト",
+      "off": "オフ",
+      "line": "行",
+      "block": "ブロック"
+    },
+    "outlineFollow": "アウトラインがカーソル/スクロールに追従",
+    "codeBlockLineNumbers": "ライブモードのコードブロック行番号",
+    "editorLineNumbers": "ライブモードの本文行番号",
+    "splitScrollSync": "分割画面のスクロール同期",
+    "tileDoubleClickToEdit": "ピン留め付箋をダブルクリックで編集",
+    "tileSaveReturnsToPin": "保存後にピン留め付箋へ戻る"
   },
   "tile": {
     "empty": "空"
