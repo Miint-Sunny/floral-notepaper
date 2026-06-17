@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { OutlineItem } from "../features/markdown/outline";
 
@@ -10,6 +11,12 @@ interface OutlinePanelProps {
 
 export function OutlinePanel({ items, activeSlug, onSelect }: OutlinePanelProps) {
   const { t } = useTranslation();
+  const activeRef = useRef<HTMLButtonElement>(null);
+
+  // Keep the followed heading visible as the cursor/scroll moves through the doc.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest" });
+  }, [activeSlug]);
 
   return (
     <div className="flex flex-col h-full">
@@ -30,6 +37,7 @@ export function OutlinePanel({ items, activeSlug, onSelect }: OutlinePanelProps)
             return (
               <button
                 key={item.slug}
+                ref={active ? activeRef : undefined}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => onSelect(item)}
                 title={item.text}

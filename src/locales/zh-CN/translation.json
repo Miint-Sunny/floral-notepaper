@@ -282,6 +282,7 @@
     "splitScrollSync": "分栏同步滚动",
     "codeBlockLineNumbers": "即时模式代码块行号",
     "editorLineNumbers": "即时模式整篇行号栏",
+    "outlineFollow": "大纲跟随光标/滚动",
     "title": "应用设置",
     "update": {
       "advanced": "高级",

@@ -78,3 +78,16 @@ export function parseOutline(content: string): OutlineItem[] {
 
   return items;
 }
+
+/**
+ * The heading whose section contains `line` (0-based): the last heading at or
+ * above it. Returns null when `line` precedes the first heading.
+ */
+export function activeHeadingByLine(items: OutlineItem[], line: number): string | null {
+  let slug: string | null = null;
+  for (const item of items) {
+    if (item.line <= line) slug = item.slug;
+    else break;
+  }
+  return slug;
+}

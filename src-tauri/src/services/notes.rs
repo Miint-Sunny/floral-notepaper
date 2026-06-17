@@ -82,6 +82,8 @@ pub struct AppConfig {
     pub editor_line_numbers: bool,
     #[serde(default = "default_live_active_highlight")]
     pub live_active_highlight: String,
+    #[serde(default = "default_outline_follow")]
+    pub outline_follow: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface_width: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1082,6 +1084,7 @@ impl NoteStore {
             code_block_line_numbers: false,
             editor_line_numbers: false,
             live_active_highlight: "off".into(),
+            outline_follow: true,
             surface_width: None,
             surface_height: None,
             toggle_visibility_shortcut: default_toggle_visibility_shortcut(),
@@ -1658,6 +1661,10 @@ fn default_live_active_highlight() -> String {
     "off".into()
 }
 
+fn default_outline_follow() -> bool {
+    true
+}
+
 fn default_toggle_visibility_shortcut() -> String {
     String::new()
 }
@@ -1832,6 +1839,7 @@ mod tests {
             code_block_line_numbers: false,
             editor_line_numbers: false,
             live_active_highlight: "off".into(),
+            outline_follow: true,
             surface_width: None,
             surface_height: None,
             toggle_visibility_shortcut: String::new(),

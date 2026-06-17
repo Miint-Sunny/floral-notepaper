@@ -37,11 +37,15 @@ export interface LiveEditorProps {
   showCodeLineNumbers?: boolean;
   showEditorLineNumbers?: boolean;
   activeHighlight?: "off" | "line" | "block";
+  /** Fired with the main cursor's 0-based line whenever it moves. */
+  onCursorLine?: (line: number) => void;
 }
 
 export interface LiveEditorHandle {
   /** Scroll the given 1-based source line to the top of the viewport. */
   scrollToLine: (line: number) => void;
+  /** The main cursor's current 0-based line. */
+  getCursorLine: () => number;
 }
 
 const identity = (src: string) => src;
@@ -58,6 +62,7 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
     showCodeLineNumbers = false,
     showEditorLineNumbers = false,
     activeHighlight = "off",
+    onCursorLine,
   },
   ref,
 ) {
@@ -74,6 +79,11 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
         const pos = view.state.doc.line(lineNumber).from;
         view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: "start" }) });
       },
+      getCursorLine() {
+        const view = viewRef.current;
+        if (!view) return 0;
+        return view.state.doc.lineAt(view.state.selection.main.head).number - 1;
+      },
     }),
     [],
   );
@@ -86,6 +96,8 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
   // Keep latest callbacks/values accessible from CodeMirror without rebuilding.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onCursorLineRef = useRef(onCursorLine);
+  onCursorLineRef.current = onCursorLine;
   const resolveImageSrcRef = useRef(resolveImageSrc);
   resolveImageSrcRef.current = resolveImageSrc;
   const showCodeLineNumbersRef = useRef(showCodeLineNumbers);
@@ -124,6 +136,10 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
               onChangeRef.current(update.state.doc.toString());
+            }
+            if (update.docChanged || update.selectionSet) {
+              const head = update.state.selection.main.head;
+              onCursorLineRef.current?.(update.state.doc.lineAt(head).number - 1);
             }
           }),
         ],

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { parseOutline } from "./outline";
+import { activeHeadingByLine, parseOutline } from "./outline";
 
 describe("parseOutline", () => {
   test("extracts heading level, text and zero-based line", () => {
@@ -48,5 +48,24 @@ describe("parseOutline", () => {
 
   test("returns an empty list when there are no headings", () => {
     expect(parseOutline("just a paragraph\nand another line")).toEqual([]);
+  });
+});
+
+describe("activeHeadingByLine", () => {
+  const items = parseOutline("# A\n\ntext\n## B\nmore\n## C");
+  // A=line0, B=line3, C=line5
+
+  test("returns the last heading at or above the line", () => {
+    expect(activeHeadingByLine(items, 0)).toBe("a");
+    expect(activeHeadingByLine(items, 2)).toBe("a");
+    expect(activeHeadingByLine(items, 3)).toBe("b");
+    expect(activeHeadingByLine(items, 4)).toBe("b");
+    expect(activeHeadingByLine(items, 99)).toBe("c");
+  });
+
+  test("returns null before the first heading and for empty input", () => {
+    const withLead = parseOutline("intro\n# A");
+    expect(activeHeadingByLine(withLead, 0)).toBeNull();
+    expect(activeHeadingByLine([], 5)).toBeNull();
   });
 });

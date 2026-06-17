@@ -9,7 +9,7 @@ import { exportMarkdownNote, importMarkdownNote } from "../features/importExport
 import { MarkdownPreview } from "../features/markdown/MarkdownPreview";
 import { LiveEditor, type LiveEditorHandle } from "../features/markdown/LiveEditor";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { parseOutline, type OutlineItem } from "../features/markdown/outline";
+import { activeHeadingByLine, parseOutline, type OutlineItem } from "../features/markdown/outline";
 import { showToast } from "./Toast";
 import {
   blockIndexAtOffset,
@@ -95,6 +95,19 @@ type SidePanelMode = "about" | "settings";
 
 /** Width of the Outline column when expanded (px). */
 const OUTLINE_WIDTH = 220;
+
+/** The heading anchor nearest the top of the scrolled preview container. */
+function activeSlugFromPreview(items: OutlineItem[], container: HTMLElement): string | null {
+  const containerTop = container.getBoundingClientRect().top;
+  let slug: string | null = items[0]?.slug ?? null;
+  for (const item of items) {
+    const el = container.querySelector(`#${CSS.escape(item.slug)}`);
+    if (!el) continue;
+    if (el.getBoundingClientRect().top - containerTop <= 12) slug = item.slug;
+    else break;
+  }
+  return slug;
+}
 
 interface NoteMenuState {
   x: number;
@@ -339,6 +352,7 @@ export function MainWindow({
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [outlineVisible, setOutlineVisible] = useState(false);
+  const [activeOutlineSlug, setActiveOutlineSlug] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -589,12 +603,16 @@ export function MainWindow({
   );
   const charCount = useMemo(() => countNoteChars(content), [content]);
   const outlineItems = useMemo(() => parseOutline(content), [content]);
+  const outlineFollow = settingsConfig?.outlineFollow ?? true;
+  // Scroll-spy is active only when the panel is open and "follow" is enabled.
+  const outlineTracking = outlineVisible && outlineFollow;
 
   // Jump to a heading from the outline. Live mode scrolls the CodeMirror editor
   // to the source line; pure edit mode scrolls the source textarea to that line;
   // preview/split scroll the rendered anchor (same path as in-content heading links).
   const handleOutlineSelect = useCallback(
     (item: OutlineItem) => {
+      setActiveOutlineSlug(item.slug);
       if (viewMode === "live") {
         liveEditorRef.current?.scrollToLine(item.line + 1);
         return;
@@ -614,6 +632,26 @@ export function MainWindow({
     },
     [viewMode, settingsConfig?.fontSize],
   );
+
+  // Refresh the followed heading when the view, content, or tracking state
+  // changes. Live cursor/scroll movement within a view is handled by the
+  // textarea's onSelect, the preview's onScroll, and LiveEditor's onCursorLine.
+  useEffect(() => {
+    if (!outlineTracking) {
+      setActiveOutlineSlug(null);
+      return;
+    }
+    if (viewMode === "preview") {
+      const container = previewScrollRef.current;
+      if (container) setActiveOutlineSlug(activeSlugFromPreview(outlineItems, container));
+      return;
+    }
+    const line =
+      viewMode === "live"
+        ? (liveEditorRef.current?.getCursorLine() ?? 0)
+        : content.slice(0, contentRef.current?.selectionStart ?? 0).split("\n").length - 1;
+    setActiveOutlineSlug(activeHeadingByLine(outlineItems, line));
+  }, [viewMode, outlineItems, outlineTracking, content]);
 
   const applyNote = useCallback(
     (note: Note) => {
@@ -2687,7 +2725,11 @@ export function MainWindow({
             style={{ width: outlineVisible ? OUTLINE_WIDTH : 0 }}
           >
             <div className="h-full" style={{ width: OUTLINE_WIDTH }}>
-              <OutlinePanel items={outlineItems} onSelect={handleOutlineSelect} />
+              <OutlinePanel
+                items={outlineItems}
+                activeSlug={outlineTracking ? activeOutlineSlug : null}
+                onSelect={handleOutlineSelect}
+              />
             </div>
           </div>
 
@@ -3012,6 +3054,13 @@ export function MainWindow({
                           onDrop={imageDropHandler}
                           onDragOver={imageDragOverHandler}
                           onScroll={handleEditorScroll}
+                          onSelect={(event) => {
+                            if (!outlineTracking) return;
+                            const line =
+                              content.slice(0, event.currentTarget.selectionStart).split("\n")
+                                .length - 1;
+                            setActiveOutlineSlug(activeHeadingByLine(outlineItems, line));
+                          }}
                           className="w-full h-full leading-[1.9] text-ink-soft font-body placeholder:text-ink-ghost/40"
                           style={{
                             fontSize: `${settingsConfig?.fontSize ?? 14}px`,
@@ -3058,7 +3107,16 @@ export function MainWindow({
                       )}
                       <div
                         ref={previewScrollRef}
-                        onScroll={handlePreviewScroll}
+                        onScroll={(event) => {
+                          handlePreviewScroll();
+                          // Split is driven by the editor caret; only preview-only
+                          // mode follows the scroll position.
+                          if (outlineTracking && viewMode === "preview") {
+                            setActiveOutlineSlug(
+                              activeSlugFromPreview(outlineItems, event.currentTarget),
+                            );
+                          }
+                        }}
                         className={`flex-1 overflow-y-auto px-6 pb-6 ${
                           viewMode === "preview" ? "pt-3" : "pt-1"
                         }`}
@@ -3081,6 +3139,11 @@ export function MainWindow({
                         onChange={(next) => {
                           setContent(next);
                           markDirty();
+                        }}
+                        onCursorLine={(line) => {
+                          if (outlineTracking) {
+                            setActiveOutlineSlug(activeHeadingByLine(outlineItems, line));
+                          }
                         }}
                         fontSize={settingsConfig?.fontSize ?? 14}
                         resolveImageSrc={resolveLiveImageSrc}

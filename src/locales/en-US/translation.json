@@ -282,6 +282,7 @@
     "splitScrollSync": "Split view scroll sync",
     "codeBlockLineNumbers": "Code block line numbers (Live)",
     "editorLineNumbers": "Editor line-number gutter (Live)",
+    "outlineFollow": "Outline follows cursor/scroll",
     "title": "Settings",
     "update": {
       "advanced": "Advanced",
