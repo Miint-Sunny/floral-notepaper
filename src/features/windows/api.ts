@@ -29,3 +29,9 @@ export function openNoteInEditor(noteId: string): Promise<void> {
 export function takeStartupFile(): Promise<string | null> {
   return invoke("take_startup_file");
 }
+
+/** Signal the backend that the main window has painted, so it can reveal the
+ * window without a white startup flash. No-op once the window is already shown. */
+export function notifyMainWindowReady(): Promise<void> {
+  return invoke("notify_main_window_ready");
+}

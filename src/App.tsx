@@ -14,6 +14,7 @@ import { tabToIndentListener } from "indent-textarea";
 import { getConfig } from "./features/settings/api";
 import { applyTheme, watchSystemTheme } from "./features/settings/theme";
 import type { AppConfig, ThemeOption } from "./features/settings/types";
+import { notifyMainWindowReady } from "./features/windows/api";
 import { getInitialRoute } from "./features/windows/windowRoutes";
 import { syncLanguage } from "./locales";
 import { listen } from "@tauri-apps/api/event";
@@ -57,6 +58,23 @@ function App() {
       void unlisten.then((fn) => fn());
     };
   }, []);
+
+  useEffect(() => {
+    if (activeView !== "main") return;
+    // Reveal the (initially hidden) main window only after the first frame has
+    // actually painted — two rAFs guarantee the browser has rendered React's
+    // first commit — so the transparent window never flashes white pre-paint.
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        void notifyMainWindowReady();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [activeView]);
 
   useEffect(() => {
     const handleTab = (event: KeyboardEvent) => {

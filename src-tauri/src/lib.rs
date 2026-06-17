@@ -325,6 +325,11 @@ async fn open_note_in_editor(app: AppHandle, note_id: String) -> Result<(), AppE
 }
 
 #[tauri::command]
+fn notify_main_window_ready(app: AppHandle) -> Result<(), AppError> {
+    desktop::show_main_window_on_ready(&app)
+}
+
+#[tauri::command]
 fn take_startup_file() -> Option<String> {
     desktop::take_startup_file()
 }
@@ -466,7 +471,8 @@ pub fn run() {
             updater::commands::update_install,
             updater::commands::update_install_prepare_report,
             updater::commands::update_cancel,
-            take_startup_file
+            take_startup_file,
+            notify_main_window_ready
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

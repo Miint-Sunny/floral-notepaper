@@ -435,6 +435,14 @@ const NOTEPAD_POOL_CAPACITY: usize = 2;
 /// previous approach of emitting an event after a hardcoded delay.
 static STARTUP_FILE: Mutex<Option<String>> = Mutex::new(None);
 
+/// Whether the main window should be revealed once the frontend signals it has
+/// painted its first frame. Set during cold-start setup (false when launched
+/// with `--silent`). Consumed exactly once by `show_main_window_on_ready`
+/// (frontend signal) or a fallback timer. Showing only after the first paint
+/// avoids the white flash of a transparent window revealed before the webview
+/// has rendered.
+static STARTUP_AUTOSHOW: AtomicBool = AtomicBool::new(false);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayMenuAction {
     ShowMain,
@@ -1126,6 +1134,16 @@ pub fn take_startup_file() -> Option<String> {
     STARTUP_FILE.lock().ok()?.take()
 }
 
+/// Called by the frontend once the main window has painted its first frame.
+/// Reveals the window if a cold-start auto-show is still pending, then clears
+/// the flag so neither a duplicate signal nor the fallback timer re-shows it.
+pub fn show_main_window_on_ready(app: &AppHandle) -> Result<(), AppError> {
+    if STARTUP_AUTOSHOW.swap(false, Ordering::SeqCst) {
+        show_main_window(app)?;
+    }
+    Ok(())
+}
+
 pub fn setup_desktop(app: &mut App) -> Result<(), Box<dyn Error>> {
     app.manage(RuntimeState::default());
     app.manage(NotepadPool::default());
@@ -1142,10 +1160,23 @@ pub fn setup_desktop(app: &mut App) -> Result<(), Box<dyn Error>> {
     setup_tray(app)?;
     schedule_notepad_prewarm(app.handle());
 
-    if !std::env::args().any(|a| a == "--silent") {
-        if let Err(error) = show_main_window(app.handle()) {
-            eprintln!("failed to show main window on startup: {error}");
-        }
+    // Defer revealing the main window until the frontend reports its first
+    // paint (via `show_main_window_on_ready`) to avoid a white startup flash.
+    // `--silent` (autostart-to-tray) keeps it hidden entirely.
+    let autoshow = !std::env::args().any(|a| a == "--silent");
+    STARTUP_AUTOSHOW.store(autoshow, Ordering::SeqCst);
+    if autoshow {
+        // Fallback: if the frontend never signals (e.g. it failed to load),
+        // reveal the window anyway so the app is never stuck invisible.
+        let handle = app.handle().clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(3000));
+            if STARTUP_AUTOSHOW.swap(false, Ordering::SeqCst) {
+                if let Err(error) = show_main_window(&handle) {
+                    eprintln!("failed to show main window via startup fallback: {error}");
+                }
+            }
+        });
     }
 
     let args: Vec<String> = std::env::args().collect();
