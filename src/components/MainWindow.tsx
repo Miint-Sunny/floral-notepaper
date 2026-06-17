@@ -402,6 +402,10 @@ export function MainWindow({
   const [settingsOverlay, setSettingsOverlay] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 1080 : true,
   );
+  // 悬浮设置面板需从工具栏正下方展开。工具栏虽是固定 h-10，但窄窗下视图切换(编辑/分栏/即时/预览)
+  // 会被挤到换行、内容高过 40px → 写死 top-10 会被压住。故实测工具栏真实高度作为悬浮层的 top。
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarHeight, setToolbarHeight] = useState(40);
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5);
@@ -1005,6 +1009,17 @@ export function MainWindow({
     const onResize = () => setSettingsOverlay(window.innerWidth < 1080);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // 实测工具栏高度，供悬浮设置/关于面板从其正下方展开（窄窗下工具栏会变高）。
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setToolbarHeight(el.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -2821,7 +2836,10 @@ export function MainWindow({
           </div>
 
           <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex items-center justify-between px-4 h-10 border-b border-paper-deep/20 shrink-0 bg-paper/20">
+            <div
+              ref={toolbarRef}
+              className="flex items-center justify-between gap-2 px-4 min-h-10 border-b border-paper-deep/20 shrink-0 bg-paper/20"
+            >
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -3322,21 +3340,23 @@ export function MainWindow({
           {settingsConfig &&
             settingsOpen &&
             settingsOverlay && (
-              // 覆盖层从工具栏下方起（top-10 = 工具栏 h-10），让视图切换（即时/预览）那条工具栏
-              // 仍然可见可点，不被遮罩拦截。
+              // 遮罩从工具栏正下方起（top = 实测工具栏高度），让视图切换（即时/预览）那条工具栏
+              // 仍然可见可点、不被遮罩拦截。
               <div
-                className="absolute inset-x-0 bottom-0 top-10 z-20"
+                className="absolute inset-x-0 bottom-0 z-20"
+                style={{ top: toolbarHeight }}
                 onClick={handleCloseSettings}
               />
             )}
           <div
+            style={settingsOverlay ? { top: toolbarHeight } : undefined}
             className={`relative shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               sidePanelExpanded || mountedSidePanel ? "border-l border-paper-deep/20" : "border-l-0"
             } ${
               settingsOverlay
-                ? // 悬浮态：从工具栏下方（top-10）展开，避免面板「应用设置」标题与工具栏视图切换相撞；
-                  // 高度由 top-10/bottom-0 决定，故此处不再用 h-full（否则会过约束、底部溢出）。
-                  `absolute right-0 top-10 bottom-0 z-30 ${visibleSidePanel ? "w-[360px] shadow-xl" : "w-0"}`
+                ? // 悬浮态：从工具栏正下方（top = 实测工具栏高度）展开，避免面板「应用设置」标题与
+                  // 工具栏视图切换相撞；高度由 top/bottom-0 决定，故此处不用 h-full（否则过约束、底部溢出）。
+                  `absolute right-0 bottom-0 z-30 ${visibleSidePanel ? "w-[360px] shadow-xl" : "w-0"}`
                 : `h-full ${sidePanelExpanded ? "w-[360px]" : "w-0"}`
             }`}
           >
