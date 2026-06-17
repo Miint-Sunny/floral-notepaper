@@ -124,54 +124,9 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-hidden px-4 py-4 space-y-5">
+        {/* 通用：窗口/启动 + 界面语言 */}
         <section className="space-y-2">
-          <label className="block text-[11px] font-body text-ink-faint">
-            {t("settings.theme.label", { defaultValue: "主题" })}
-          </label>
-          <SlidingButtonGroup
-            options={themeOptions}
-            value={config.theme}
-            onChange={(v: ThemeOption) => {
-              setConfigValue("theme", v);
-              applyTheme(v);
-              watchSystemTheme(v);
-            }}
-          />
-        </section>
-
-        <section className="space-y-2">
-          <label className="block text-[11px] font-body text-ink-faint">
-            {t("settings.dataDir", { defaultValue: "数据目录" })}
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={config.dataDir}
-              readOnly
-              className="min-w-0 flex-1 h-8 px-2.5 rounded-lg bg-paper-warm/70 border border-paper-deep/40 text-[11px] font-mono text-ink-faint truncate"
-            />
-            <button
-              type="button"
-              onClick={onMigrateDataDir}
-              className="h-8 px-3 rounded-lg border border-paper-deep/45 text-[11px] text-ink-faint hover:text-bamboo hover:bg-bamboo-mist/50 transition-colors cursor-pointer"
-            >
-              {t("settings.selectFolder", { defaultValue: "选择文件夹" })}
-            </button>
-          </div>
-        </section>
-
-        <section className="space-y-2">
-          <label className="block text-[11px] font-body text-ink-faint">
-            {t("settings.locale.label", { defaultValue: "语言" })}
-          </label>
-          <SlidingButtonGroup
-            options={localeOptions}
-            value={config.locale}
-            onChange={(value) => setConfigValue("locale", value)}
-          />
-        </section>
-
-        <section className="space-y-2">
+          <GroupHeading label={t("settings.group.general", { defaultValue: "通用" })} />
           <ToggleRow
             label={t("settings.closeToTray", { defaultValue: "关闭到托盘" })}
             checked={config.closeToTray}
@@ -182,6 +137,40 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
             checked={config.autostart}
             onChange={(checked) => setConfigValue("autostart", checked)}
           />
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-body text-ink-faint">
+              {t("settings.locale.label", { defaultValue: "界面语言" })}
+            </label>
+            <SlidingButtonGroup
+              options={localeOptions}
+              value={config.locale}
+              onChange={(value) => setConfigValue("locale", value)}
+            />
+          </div>
+        </section>
+
+        {/* 外观：应用主题 */}
+        <section className="space-y-2">
+          <GroupHeading label={t("settings.group.appearance", { defaultValue: "外观" })} />
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-body text-ink-faint">
+              {t("settings.theme.label", { defaultValue: "应用主题" })}
+            </label>
+            <SlidingButtonGroup
+              options={themeOptions}
+              value={config.theme}
+              onChange={(v: ThemeOption) => {
+                setConfigValue("theme", v);
+                applyTheme(v);
+                watchSystemTheme(v);
+              }}
+            />
+          </div>
+        </section>
+
+        {/* 自动保存 */}
+        <section className="space-y-2">
+          <GroupHeading label={t("settings.group.autoSave", { defaultValue: "自动保存" })} />
           <ToggleRow
             label={t("settings.autoSave.note", { defaultValue: "自动保存笔记" })}
             checked={config.noteAutoSave}
@@ -194,14 +183,118 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
           />
           <ToggleRow
             label={t("settings.autoSave.externalFile", { defaultValue: "外部文件自动保存" })}
+            caption={t("settings.caption.externalFileAutoSave", {
+              defaultValue: "编辑外部 .md 文件时自动写回原路径",
+            })}
             checked={config.externalFileAutoSave}
             onChange={(checked) => setConfigValue("externalFileAutoSave", checked)}
           />
-          <ToggleRow
-            label={t("settings.rememberSurfaceSize", { defaultValue: "记住小窗尺寸" })}
-            checked={config.rememberSurfaceSize}
-            onChange={(checked) => setConfigValue("rememberSurfaceSize", checked)}
+        </section>
+
+        {/* 编辑器 */}
+        <section className="space-y-2">
+          <GroupHeading label={t("settings.group.editor", { defaultValue: "编辑器" })} />
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-body text-ink-faint">
+              {t("settings.defaultView.label", { defaultValue: "默认视图" })}
+            </label>
+            <SlidingButtonGroup
+              options={viewModes}
+              value={config.defaultViewMode}
+              onChange={(v) => setConfigValue("defaultViewMode", v)}
+            />
+            <FieldCaption>
+              {t("settings.caption.defaultView", {
+                defaultValue: "「即时」为本分支新增的单栏所见即所得编辑",
+              })}
+            </FieldCaption>
+          </div>
+          <LabeledRange
+            label={t("settings.fontSize.editor", { defaultValue: "编辑器字号" })}
+            value={config.fontSize ?? 14}
+            min={8}
+            max={30}
+            step={1}
+            suffix="px"
+            onChange={(value) => setConfigValue("fontSize", value)}
           />
+          <LabeledRange
+            label={t("settings.tabIndentSize", { defaultValue: "Tab 缩进宽度" })}
+            value={config.tabIndentSize ?? 2}
+            min={1}
+            max={8}
+            step={1}
+            valueWidth="w-10"
+            onChange={(value) => setConfigValue("tabIndentSize", value)}
+          />
+          <ToggleRow
+            label={t("settings.splitScrollSync", { defaultValue: "分栏同步滚动" })}
+            caption={t("settings.caption.splitScrollSync", {
+              defaultValue: "分栏视图左右编辑/预览同步滚动",
+            })}
+            checked={config.splitScrollSync ?? true}
+            onChange={(checked) => setConfigValue("splitScrollSync", checked)}
+          />
+          <ToggleRow
+            label={t("settings.renderHtmlMarkdown", { defaultValue: "允许 HTML 标签渲染" })}
+            caption={t("settings.caption.renderHtmlMarkdown", {
+              defaultValue: "预览/即时中渲染 Markdown 内嵌的 HTML 标签",
+            })}
+            checked={config.renderHtmlMarkdown}
+            onChange={(checked) => setConfigValue("renderHtmlMarkdown", checked)}
+          />
+        </section>
+
+        {/* 即时 · 大纲（本分支新增） */}
+        <section className="space-y-2">
+          <GroupHeading
+            label={t("settings.group.liveOutline", { defaultValue: "即时 · 大纲" })}
+            badge={t("settings.badge.forkNew", { defaultValue: "分支新增" })}
+          />
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-body text-ink-faint">
+              {t("settings.activeHighlight.label", { defaultValue: "即时模式高光当前行/块" })}
+            </label>
+            <SlidingButtonGroup
+              options={highlightModes}
+              value={config.liveActiveHighlight ?? "off"}
+              onChange={(v) => setConfigValue("liveActiveHighlight", v)}
+            />
+            <FieldCaption>
+              {t("settings.caption.liveActiveHighlight", {
+                defaultValue: "即时模式下高亮光标所在行或整块",
+              })}
+            </FieldCaption>
+          </div>
+          <ToggleRow
+            label={t("settings.codeBlockLineNumbers", { defaultValue: "即时模式代码块行号" })}
+            caption={t("settings.caption.codeBlockLineNumbers", {
+              defaultValue: "即时模式下代码块左侧显示行号",
+            })}
+            checked={config.codeBlockLineNumbers ?? false}
+            onChange={(checked) => setConfigValue("codeBlockLineNumbers", checked)}
+          />
+          <ToggleRow
+            label={t("settings.editorLineNumbers", { defaultValue: "即时模式整篇行号栏" })}
+            caption={t("settings.caption.editorLineNumbers", {
+              defaultValue: "即时模式下整篇文档左侧的行号栏",
+            })}
+            checked={config.editorLineNumbers ?? false}
+            onChange={(checked) => setConfigValue("editorLineNumbers", checked)}
+          />
+          <ToggleRow
+            label={t("settings.outlineFollow", { defaultValue: "大纲跟随光标/滚动" })}
+            caption={t("settings.caption.outlineFollow", {
+              defaultValue: "阅读/编辑时大纲自动高亮当前所在标题",
+            })}
+            checked={config.outlineFollow ?? true}
+            onChange={(checked) => setConfigValue("outlineFollow", checked)}
+          />
+        </section>
+
+        {/* 磁贴与小窗：先磁贴，后小窗 */}
+        <section className="space-y-2">
+          <GroupHeading label={t("settings.group.tile", { defaultValue: "磁贴与小窗" })} />
           <ToggleRow
             label={t("settings.tileRenderMarkdown", { defaultValue: "磁贴渲染 Markdown" })}
             checked={config.tileRenderMarkdown}
@@ -209,50 +302,86 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
           />
           <ToggleRow
             label={t("settings.tileDoubleClickToEdit", { defaultValue: "双击磁贴进入编辑" })}
+            badge={t("settings.badge.new", { defaultValue: "新增" })}
+            caption={t("settings.caption.tileDoubleClickToEdit", {
+              defaultValue: "在磁贴上双击直接进入编辑（默认关）",
+            })}
             checked={config.tileDoubleClickToEdit ?? false}
             onChange={(checked) => setConfigValue("tileDoubleClickToEdit", checked)}
           />
           <ToggleRow
             label={t("settings.tileSaveReturnsToPin", { defaultValue: "保存后回到磁贴" })}
+            badge={t("settings.badge.new", { defaultValue: "新增" })}
+            caption={t("settings.caption.tileSaveReturnsToPin", {
+              defaultValue: "小窗手动保存成功后自动切回磁贴（默认关）",
+            })}
             checked={config.tileSaveReturnsToPin ?? false}
             onChange={(checked) => setConfigValue("tileSaveReturnsToPin", checked)}
           />
-          <ToggleRow
-            label={t("settings.renderHtmlMarkdown", { defaultValue: "允许 HTML 标签渲染" })}
-            checked={config.renderHtmlMarkdown}
-            onChange={(checked) => setConfigValue("renderHtmlMarkdown", checked)}
-          />
-          <ToggleRow
-            label={t("settings.splitScrollSync", { defaultValue: "分栏同步滚动" })}
-            checked={config.splitScrollSync ?? true}
-            onChange={(checked) => setConfigValue("splitScrollSync", checked)}
-          />
-          <ToggleRow
-            label={t("settings.codeBlockLineNumbers", { defaultValue: "即时模式代码块行号" })}
-            checked={config.codeBlockLineNumbers ?? false}
-            onChange={(checked) => setConfigValue("codeBlockLineNumbers", checked)}
-          />
-          <ToggleRow
-            label={t("settings.editorLineNumbers", { defaultValue: "即时模式整篇行号栏" })}
-            checked={config.editorLineNumbers ?? false}
-            onChange={(checked) => setConfigValue("editorLineNumbers", checked)}
-          />
-          <ToggleRow
-            label={t("settings.outlineFollow", { defaultValue: "大纲跟随光标/滚动" })}
-            checked={config.outlineFollow ?? true}
-            onChange={(checked) => setConfigValue("outlineFollow", checked)}
-          />
-        </section>
-
-        {/* 快捷键功能设置区域，与上方常规设置分开 */}
-        <section className="space-y-2">
           <ToggleRow
             label={t("settings.tileCtrlClose", { defaultValue: "Ctrl+右键快速关闭磁贴" })}
             checked={config.tileCtrlClose}
             onChange={(checked) => setConfigValue("tileCtrlClose", checked)}
           />
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-body text-ink-faint">
+              {t("settings.tileColor.label", { defaultValue: "磁贴颜色" })}
+            </label>
+            <SlidingButtonGroup
+              options={tileColorModes}
+              value={config.tileColorMode}
+              onChange={(v: TileColorMode) => setConfigValue("tileColorMode", v)}
+            />
+            {config.tileColorMode === "custom" && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={normalizeTileColor(config.tileColor)}
+                  onChange={(event) => setConfigValue("tileColor", event.target.value)}
+                  className="w-10 h-8 rounded-lg border border-paper-deep/40 bg-paper-warm/70 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={config.tileColor}
+                  onChange={(event) => setConfigValue("tileColor", event.target.value)}
+                  placeholder="#f6f3ec"
+                  spellCheck={false}
+                  className="min-w-0 flex-1 h-8 px-2.5 rounded-lg bg-paper-warm/70 border border-paper-deep/40 text-[12px] font-mono text-ink-soft outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setConfigValue("tileColor", DEFAULT_TILE_COLOR)}
+                  className="h-8 px-2.5 rounded-lg border border-paper-deep/45 text-[11px] text-ink-faint hover:text-bamboo hover:bg-bamboo-mist/50 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {t("common.default", { defaultValue: "默认" })}
+                </button>
+              </div>
+            )}
+          </div>
           <ToggleRow
-            label={t("settings.openAtCursor", { defaultValue: "快捷键打开时跟随鼠标位置" })}
+            label={t("settings.rememberSurfaceSize", { defaultValue: "记住小窗尺寸" })}
+            checked={config.rememberSurfaceSize}
+            onChange={(checked) => setConfigValue("rememberSurfaceSize", checked)}
+          />
+          <LabeledRange
+            label={t("settings.fontSize.surface", { defaultValue: "小窗/磁贴字号" })}
+            value={config.surfaceFontSize ?? 14}
+            min={8}
+            max={30}
+            step={1}
+            suffix="px"
+            onChange={(value) => setConfigValue("surfaceFontSize", value)}
+          />
+        </section>
+
+        {/* 快捷键 */}
+        <section className="space-y-2">
+          <GroupHeading label={t("settings.group.shortcuts", { defaultValue: "快捷键" })} />
+          <ToggleRow
+            label={t("settings.openAtCursor", { defaultValue: "在鼠标位置打开快捷记录" })}
+            caption={t("settings.caption.openAtCursor", {
+              defaultValue: "使用快捷键唤出时，小窗出现在当前鼠标附近",
+            })}
             checked={config.openAtCursor ?? true}
             onChange={(checked) => setConfigValue("openAtCursor", checked)}
           />
@@ -276,103 +405,9 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
           </div>
         </section>
 
+        {/* 背景图片 */}
         <section className="space-y-2">
-          <label className="block text-[11px] font-body text-ink-faint">
-            {t("settings.fontSize.editor", { defaultValue: "编辑器字号" })}
-          </label>
-          <div className="flex items-center gap-3 h-9 rounded-lg px-2.5 bg-paper-warm/45 border border-paper-deep/25">
-            <input
-              type="range"
-              min={8}
-              max={30}
-              step={1}
-              value={config.fontSize ?? 14}
-              onChange={(event) => setConfigValue("fontSize", Number(event.target.value))}
-              className="flex-1 h-1 accent-bamboo cursor-pointer appearance-none bg-transparent [&::-webkit-slider-runnable-track]:h-[3px] [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-paper-deep/50 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-bamboo [&::-webkit-slider-thumb]:-mt-[4.5px] [&::-webkit-slider-thumb]:shadow-[0_1px_3px_rgba(0,0,0,0.15)]"
-            />
-            <span className="text-[12px] font-mono text-ink-soft tabular-nums w-8 text-right">
-              {config.fontSize ?? 14}px
-            </span>
-          </div>
-        </section>
-
-        <section className="space-y-2">
-          <label className="block text-[11px] font-body text-ink-faint">
-            {t("settings.fontSize.surface", { defaultValue: "小窗/磁贴字号" })}
-          </label>
-          <div className="flex items-center gap-3 h-9 rounded-lg px-2.5 bg-paper-warm/45 border border-paper-deep/25">
-            <input
-              type="range"
-              min={8}
-              max={30}
-              step={1}
-              value={config.surfaceFontSize ?? 14}
-              onChange={(event) => setConfigValue("surfaceFontSize", Number(event.target.value))}
-              className="flex-1 h-1 accent-bamboo cursor-pointer appearance-none bg-transparent [&::-webkit-slider-runnable-track]:h-[3px] [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-paper-deep/50 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-bamboo [&::-webkit-slider-thumb]:-mt-[4.5px] [&::-webkit-slider-thumb]:shadow-[0_1px_3px_rgba(0,0,0,0.15)]"
-            />
-            <span className="text-[12px] font-mono text-ink-soft tabular-nums w-8 text-right">
-              {config.surfaceFontSize ?? 14}px
-            </span>
-          </div>
-        </section>
-
-        <section className="space-y-2">
-          <label className="block text-[11px] font-body text-ink-faint">
-            {t("settings.tabIndentSize", { defaultValue: "Tab 缩进宽��" })}
-          </label>
-          <div className="flex items-center gap-3 h-9 rounded-lg px-2.5 bg-paper-warm/45 border border-paper-deep/25">
-            <input
-              type="range"
-              min={1}
-              max={8}
-              step={1}
-              value={config.tabIndentSize ?? 2}
-              onChange={(event) => setConfigValue("tabIndentSize", Number(event.target.value))}
-              className="flex-1 h-1 accent-bamboo cursor-pointer appearance-none bg-transparent [&::-webkit-slider-runnable-track]:h-[3px] [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-paper-deep/50 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-bamboo [&::-webkit-slider-thumb]:-mt-[4.5px] [&::-webkit-slider-thumb]:shadow-[0_1px_3px_rgba(0,0,0,0.15)]"
-            />
-            <span className="text-[12px] font-mono text-ink-soft tabular-nums w-10 text-right">
-              {config.tabIndentSize ?? 2}
-            </span>
-          </div>
-        </section>
-
-        <section className="space-y-2">
-          <label className="block text-[11px] font-body text-ink-faint">
-            {t("settings.tileColor.label", { defaultValue: "磁贴颜色" })}
-          </label>
-          <SlidingButtonGroup
-            options={tileColorModes}
-            value={config.tileColorMode}
-            onChange={(v: TileColorMode) => setConfigValue("tileColorMode", v)}
-          />
-          {config.tileColorMode === "custom" && (
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={normalizeTileColor(config.tileColor)}
-                onChange={(event) => setConfigValue("tileColor", event.target.value)}
-                className="w-10 h-8 rounded-lg border border-paper-deep/40 bg-paper-warm/70 cursor-pointer"
-              />
-              <input
-                type="text"
-                value={config.tileColor}
-                onChange={(event) => setConfigValue("tileColor", event.target.value)}
-                placeholder="#f6f3ec"
-                spellCheck={false}
-                className="min-w-0 flex-1 h-8 px-2.5 rounded-lg bg-paper-warm/70 border border-paper-deep/40 text-[12px] font-mono text-ink-soft outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => setConfigValue("tileColor", DEFAULT_TILE_COLOR)}
-                className="h-8 px-2.5 rounded-lg border border-paper-deep/45 text-[11px] text-ink-faint hover:text-bamboo hover:bg-bamboo-mist/50 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                {t("common.default", { defaultValue: "默认" })}
-              </button>
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-2">
+          <GroupHeading label={t("settings.group.background", { defaultValue: "背景" })} />
           <label className="block text-[11px] font-body text-ink-faint">
             {t("settings.background.label", { defaultValue: "背景图片" })}
           </label>
@@ -470,26 +505,27 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
           />
         </section>
 
+        {/* 数据 */}
         <section className="space-y-2">
+          <GroupHeading label={t("settings.group.data", { defaultValue: "数据" })} />
           <label className="block text-[11px] font-body text-ink-faint">
-            {t("settings.defaultView.label", { defaultValue: "默认视图" })}
+            {t("settings.dataDir", { defaultValue: "数据目录" })}
           </label>
-          <SlidingButtonGroup
-            options={viewModes}
-            value={config.defaultViewMode}
-            onChange={(v) => setConfigValue("defaultViewMode", v)}
-          />
-        </section>
-
-        <section className="space-y-2">
-          <label className="block text-[11px] font-body text-ink-faint">
-            {t("settings.activeHighlight.label", { defaultValue: "即时模式高光当前行/块" })}
-          </label>
-          <SlidingButtonGroup
-            options={highlightModes}
-            value={config.liveActiveHighlight ?? "off"}
-            onChange={(v) => setConfigValue("liveActiveHighlight", v)}
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={config.dataDir}
+              readOnly
+              className="min-w-0 flex-1 h-8 px-2.5 rounded-lg bg-paper-warm/70 border border-paper-deep/40 text-[11px] font-mono text-ink-faint truncate"
+            />
+            <button
+              type="button"
+              onClick={onMigrateDataDir}
+              className="h-8 px-3 rounded-lg border border-paper-deep/45 text-[11px] text-ink-faint hover:text-bamboo hover:bg-bamboo-mist/50 transition-colors cursor-pointer"
+            >
+              {t("settings.selectFolder", { defaultValue: "选择文件夹" })}
+            </button>
+          </div>
         </section>
 
         <UpdateSettingsSection mode="settingsOnly" />
@@ -517,16 +553,96 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
   );
 }
 
+/** 分组小标题；右侧可挂一个轻提示小标签（如「分支新增」）。 */
+function GroupHeading({ label, badge }: { label: string; badge?: string }) {
+  return (
+    <div className="flex items-center gap-2 px-0.5">
+      <h3 className="text-[10px] font-medium tracking-wide text-ink-ghost">{label}</h3>
+      {badge ? <Badge>{badge}</Badge> : null}
+    </div>
+  );
+}
+
+/** 轻量标签：标注 fork 相对 upstream/main 新增的项，提示性、不抢戏。 */
+function Badge({ children }: { children: string }) {
+  return (
+    <span className="inline-flex items-center rounded px-1.5 py-px text-[9px] font-medium leading-none text-bamboo bg-bamboo-mist/50">
+      {children}
+    </span>
+  );
+}
+
+/** 控件下方的小字说明。 */
+function FieldCaption({ children }: { children: string }) {
+  return <p className="px-0.5 text-[10px] text-ink-ghost leading-snug">{children}</p>;
+}
+
+interface LabeledRangeProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix?: string;
+  valueWidth?: string;
+  onChange: (value: number) => void;
+}
+
+/** 带上方标签的滑块（编辑器字号 / 小窗字号 / Tab 缩进 共用）。 */
+function LabeledRange({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix = "",
+  valueWidth = "w-8",
+  onChange,
+}: LabeledRangeProps) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-[11px] font-body text-ink-faint">{label}</label>
+      <div className="flex items-center gap-3 h-9 rounded-lg px-2.5 bg-paper-warm/45 border border-paper-deep/25">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="flex-1 h-1 accent-bamboo cursor-pointer appearance-none bg-transparent [&::-webkit-slider-runnable-track]:h-[3px] [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-paper-deep/50 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-bamboo [&::-webkit-slider-thumb]:-mt-[4.5px] [&::-webkit-slider-thumb]:shadow-[0_1px_3px_rgba(0,0,0,0.15)]"
+        />
+        <span
+          className={`text-[12px] font-mono text-ink-soft tabular-nums text-right ${valueWidth}`}
+        >
+          {value}
+          {suffix}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 interface ToggleRowProps {
   label: string;
+  caption?: string;
+  badge?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
 }
 
-function ToggleRow({ label, checked, onChange }: ToggleRowProps) {
+function ToggleRow({ label, caption, badge, checked, onChange }: ToggleRowProps) {
   return (
-    <label className="flex items-center justify-between h-9 rounded-lg px-2.5 bg-paper-warm/45 border border-paper-deep/25 cursor-pointer">
-      <span className="text-[12px] text-ink-soft">{label}</span>
+    <label className="flex items-center justify-between gap-3 min-h-9 rounded-lg px-2.5 py-1.5 bg-paper-warm/45 border border-paper-deep/25 cursor-pointer">
+      <span className="min-w-0 flex flex-col gap-0.5">
+        <span className="flex items-center gap-1.5 text-[12px] text-ink-soft leading-tight">
+          <span className="min-w-0">{label}</span>
+          {badge ? <Badge>{badge}</Badge> : null}
+        </span>
+        {caption ? (
+          <span className="text-[10px] text-ink-ghost leading-snug">{caption}</span>
+        ) : null}
+      </span>
       <input
         type="checkbox"
         checked={checked}
@@ -534,7 +650,7 @@ function ToggleRow({ label, checked, onChange }: ToggleRowProps) {
         className="sr-only"
       />
       <div
-        className={`relative w-8 h-[18px] rounded-full transition-colors duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`shrink-0 relative w-8 h-[18px] rounded-full transition-colors duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           checked ? "bg-bamboo" : "bg-paper-deep/50"
         }`}
       >

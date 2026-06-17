@@ -235,12 +235,12 @@
     },
     "locale": {
       "enUS": "English",
-      "label": "Language",
+      "label": "Interface language",
       "zhCN": "简体中文",
       "zhHK": "繁體中文"
     },
     "dataDir": "Data directory",
-    "openAtCursor": "Open near cursor with shortcut",
+    "openAtCursor": "Open quick note at cursor",
     "quickNoteShortcut": "Quick Note shortcut",
     "rememberSurfaceSize": "Remember surface size",
     "tabIndentSize": "Tab indent width",
@@ -267,7 +267,7 @@
     },
     "theme": {
       "dark": "Dark",
-      "label": "Theme",
+      "label": "App theme",
       "light": "Light",
       "system": "System"
     },
@@ -450,6 +450,34 @@
         "contain": "Contain",
         "repeat": "Repeat"
       }
+    },
+    "group": {
+      "general": "General",
+      "appearance": "Appearance",
+      "autoSave": "Auto-save",
+      "editor": "Editor",
+      "liveOutline": "Live & outline",
+      "tile": "Tiles & quick window",
+      "shortcuts": "Shortcuts",
+      "background": "Background",
+      "data": "Data"
+    },
+    "badge": {
+      "forkNew": "this fork",
+      "new": "new"
+    },
+    "caption": {
+      "externalFileAutoSave": "Auto-writes edits back to the external .md file",
+      "defaultView": "\"Live\" is this fork's single-pane WYSIWYG editor",
+      "splitScrollSync": "Sync scrolling between editor and preview in split view",
+      "renderHtmlMarkdown": "Render HTML tags embedded in Markdown (preview/live)",
+      "liveActiveHighlight": "Highlights the cursor's line or block in Live mode",
+      "codeBlockLineNumbers": "Shows line numbers beside code blocks in Live mode",
+      "editorLineNumbers": "Whole-document line-number gutter in Live mode",
+      "outlineFollow": "Outline auto-highlights the current heading as you read/edit",
+      "tileDoubleClickToEdit": "Double-click a tile to start editing (off by default)",
+      "tileSaveReturnsToPin": "Switch back to the tile after a manual save (off by default)",
+      "openAtCursor": "The quick window opens near the cursor when summoned by shortcut"
     }
   },
   "tile": {

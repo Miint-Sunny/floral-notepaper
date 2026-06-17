@@ -235,12 +235,12 @@
     },
     "locale": {
       "enUS": "English",
-      "label": "语言",
+      "label": "界面语言",
       "zhCN": "简体中文",
       "zhHK": "繁體中文"
     },
     "dataDir": "数据目录",
-    "openAtCursor": "快捷键打开时跟随鼠标位置",
+    "openAtCursor": "在鼠标位置打开快捷记录",
     "quickNoteShortcut": "快捷记录快捷键",
     "rememberSurfaceSize": "记住小窗尺寸",
     "tabIndentSize": "Tab 缩进宽度",
@@ -267,7 +267,7 @@
     },
     "theme": {
       "dark": "深色",
-      "label": "主题",
+      "label": "应用主题",
       "light": "浅色",
       "system": "跟随系统"
     },
@@ -450,6 +450,34 @@
         "contain": "完整",
         "repeat": "平铺"
       }
+    },
+    "group": {
+      "general": "通用",
+      "appearance": "外观",
+      "autoSave": "自动保存",
+      "editor": "编辑器",
+      "liveOutline": "即时 · 大纲",
+      "tile": "磁贴与小窗",
+      "shortcuts": "快捷键",
+      "background": "背景",
+      "data": "数据"
+    },
+    "badge": {
+      "forkNew": "分支新增",
+      "new": "新增"
+    },
+    "caption": {
+      "externalFileAutoSave": "编辑外部 .md 文件时自动写回原路径",
+      "defaultView": "「即时」为本分支新增的单栏所见即所得编辑",
+      "splitScrollSync": "分栏视图左右编辑/预览同步滚动",
+      "renderHtmlMarkdown": "预览/即时中渲染 Markdown 内嵌的 HTML 标签",
+      "liveActiveHighlight": "即时模式下高亮光标所在行或整块",
+      "codeBlockLineNumbers": "即时模式下代码块左侧显示行号",
+      "editorLineNumbers": "即时模式下整篇文档左侧的行号栏",
+      "outlineFollow": "阅读/编辑时大纲自动高亮当前所在标题",
+      "tileDoubleClickToEdit": "在磁贴上双击直接进入编辑（默认关）",
+      "tileSaveReturnsToPin": "小窗手动保存成功后自动切回磁贴（默认关）",
+      "openAtCursor": "使用快捷键唤出时，小窗出现在当前鼠标附近"
     }
   },
   "tile": {

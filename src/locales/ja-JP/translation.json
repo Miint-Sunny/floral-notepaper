@@ -204,12 +204,12 @@
     },
     "locale": {
       "enUS": "English",
-      "label": "言語 (Language)",
+      "label": "表示言語",
       "zhCN": "简体中文",
       "zhHK": "繁體中文"
     },
     "dataDir": "ノートの保存先ディレクトリ",
-    "openAtCursor": "ショートカット起動時にマウス位置に表示",
+    "openAtCursor": "カーソル位置でクイックメモを開く",
     "quickNoteShortcut": "クイックメモ起動ショートカット",
     "rememberSurfaceSize": "ウィンドウサイズを記憶する",
     "tabIndentSize": "Tab キーのインデント幅",
@@ -236,7 +236,7 @@
     },
     "theme": {
       "dark": "ダーク",
-      "label": "テーマ",
+      "label": "アプリのテーマ",
       "light": "ライト",
       "system": "システムに追従"
     },
@@ -277,7 +277,35 @@
     "editorLineNumbers": "ライブモードの本文行番号",
     "splitScrollSync": "分割画面のスクロール同期",
     "tileDoubleClickToEdit": "ピン留め付箋をダブルクリックで編集",
-    "tileSaveReturnsToPin": "保存後にピン留め付箋へ戻る"
+    "tileSaveReturnsToPin": "保存後にピン留め付箋へ戻る",
+    "group": {
+      "general": "一般",
+      "appearance": "外観",
+      "autoSave": "自動保存",
+      "editor": "エディター",
+      "liveOutline": "ライブ · アウトライン",
+      "tile": "タイルとミニウィンドウ",
+      "shortcuts": "ショートカット",
+      "background": "背景",
+      "data": "データ"
+    },
+    "badge": {
+      "forkNew": "本フォーク",
+      "new": "新規"
+    },
+    "caption": {
+      "externalFileAutoSave": "外部 .md ファイルの編集を元のパスへ自動保存",
+      "defaultView": "「ライブ」は本フォーク追加の単一ペイン WYSIWYG 編集",
+      "splitScrollSync": "分割表示でエディターとプレビューのスクロールを同期",
+      "renderHtmlMarkdown": "プレビュー/ライブで Markdown 内の HTML タグを描画",
+      "liveActiveHighlight": "ライブモードでカーソル行またはブロックを強調",
+      "codeBlockLineNumbers": "ライブモードでコードブロックに行番号を表示",
+      "editorLineNumbers": "ライブモードで文書全体に行番号ガターを表示",
+      "outlineFollow": "閲覧/編集中にアウトラインが現在の見出しを自動強調",
+      "tileDoubleClickToEdit": "タイルをダブルクリックで編集（既定でオフ）",
+      "tileSaveReturnsToPin": "手動保存後にタイル表示へ戻る（既定でオフ）",
+      "openAtCursor": "ショートカットで呼び出すとカーソル付近に表示"
+    }
   },
   "tile": {
     "empty": "空"

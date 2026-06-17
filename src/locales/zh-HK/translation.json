@@ -235,12 +235,12 @@
     },
     "locale": {
       "enUS": "English",
-      "label": "語言",
+      "label": "介面語言",
       "zhCN": "簡體中文",
       "zhHK": "繁體中文"
     },
     "dataDir": "數據目錄",
-    "openAtCursor": "快捷鍵開啟時跟隨滑鼠位置",
+    "openAtCursor": "在滑鼠位置開啟快捷記錄",
     "quickNoteShortcut": "快捷記錄快捷鍵",
     "rememberSurfaceSize": "記住小窗尺寸",
     "tabIndentSize": "Tab 縮排寬度",
@@ -267,7 +267,7 @@
     },
     "theme": {
       "dark": "深色",
-      "label": "主題",
+      "label": "應用主題",
       "light": "淺色",
       "system": "跟隨系統"
     },
@@ -431,6 +431,34 @@
         "contain": "完整",
         "repeat": "平鋪"
       }
+    },
+    "group": {
+      "general": "一般",
+      "appearance": "外觀",
+      "autoSave": "自動儲存",
+      "editor": "編輯器",
+      "liveOutline": "即時 · 大綱",
+      "tile": "磁貼與小窗",
+      "shortcuts": "快捷鍵",
+      "background": "背景",
+      "data": "資料"
+    },
+    "badge": {
+      "forkNew": "分支新增",
+      "new": "新增"
+    },
+    "caption": {
+      "externalFileAutoSave": "編輯外部 .md 檔案時自動寫回原路徑",
+      "defaultView": "「即時」為本分支新增的單欄所見即所得編輯",
+      "splitScrollSync": "分欄檢視左右編輯/預覽同步捲動",
+      "renderHtmlMarkdown": "預覽/即時中渲染 Markdown 內嵌的 HTML 標籤",
+      "liveActiveHighlight": "即時模式下高亮游標所在行或整塊",
+      "codeBlockLineNumbers": "即時模式下程式碼區塊左側顯示行號",
+      "editorLineNumbers": "即時模式下整篇文件左側的行號欄",
+      "outlineFollow": "閱讀/編輯時大綱自動高亮目前所在標題",
+      "tileDoubleClickToEdit": "在磁貼上雙擊直接進入編輯（預設關）",
+      "tileSaveReturnsToPin": "小窗手動儲存成功後自動切回磁貼（預設關）",
+      "openAtCursor": "使用快捷鍵喚出時，小窗出現在目前滑鼠附近"
     }
   },
   "tile": {
