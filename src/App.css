@@ -231,28 +231,31 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-/* 统一滚动条：默认透明（占位不抖动）；滚动中 / 悬停时显出主题绿描边滑块（绿环 + 浅绿填充）。
-   滚动停止 3s 后由 JS 去掉 .is-scrolling 而自动隐藏（见 App.tsx 全局 scroll 监听）。 */
+/* 统一滚动条：默认透明（占位不抖动）；滚动中 / 悬停时显出主题绿滑块。描边收细到 1px、激活态绿边
+   用半透明柔化——避免长滑块时一道又粗又亮的绿线；直接悬停滑块本身才给足主题绿描边。
+   停滚 3s 后由 JS 去掉 .is-scrolling 自动隐藏（见 App.tsx 全局 scroll 监听）。 */
 ::-webkit-scrollbar-thumb {
   background-color: transparent;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
-  transition: background-color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 :hover::-webkit-scrollbar-thumb,
 .is-scrolling::-webkit-scrollbar-thumb {
   background-color: var(--color-bamboo-mist);
-  border-color: var(--color-bamboo);
+  border-color: color-mix(in srgb, var(--color-bamboo) 55%, transparent);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-bamboo);
+  background-color: var(--color-bamboo-mist);
   border-color: var(--color-bamboo);
 }
 
