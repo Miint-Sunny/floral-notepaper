@@ -201,7 +201,7 @@
       "zhCN": "简体中文",
       "zhHK": "繁體中文"
     },
-    "notesDir": "ノートの保存先ディレクトリ",
+    "dataDir": "ノートの保存先ディレクトリ",
     "openAtCursor": "ショートカット起動時にマウス位置に表示",
     "quickNoteShortcut": "クイックメモ起動ショートカット",
     "rememberSurfaceSize": "ウィンドウサイズを記憶する",

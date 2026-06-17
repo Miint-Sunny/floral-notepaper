@@ -1728,11 +1728,10 @@ export function MainWindow({
     event.target.value = "";
     if (!file || isExternal) return;
 
-    setErrorMessage(null);
     try {
       const ext = imageExtensionFromFile(file);
       if (!ext) {
-        setErrorMessage(t("errors.unsupportedImageFormat", { defaultValue: "不支持的图片格式" }));
+        showToast(t("errors.unsupportedImageFormat", { defaultValue: "不支持的图片格式" }));
         return;
       }
 
@@ -1758,7 +1757,7 @@ export function MainWindow({
         textarea.setSelectionRange(next.cursor, next.cursor);
       });
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      showToast(getErrorMessage(error));
     }
   };
 
