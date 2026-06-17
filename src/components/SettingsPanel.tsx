@@ -243,6 +243,14 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
             checked={config.renderHtmlMarkdown}
             onChange={(checked) => setConfigValue("renderHtmlMarkdown", checked)}
           />
+          <ToggleRow
+            label={t("settings.codeWrap", { defaultValue: "代码块自动换行" })}
+            caption={t("settings.caption.codeWrap", {
+              defaultValue: "预览/即时中长代码行自动换行；关闭则改为横向滚动",
+            })}
+            checked={config.codeWrap ?? true}
+            onChange={(checked) => setConfigValue("codeWrap", checked)}
+          />
         </section>
 
         {/* 即时 · 大纲（本分支新增） */}

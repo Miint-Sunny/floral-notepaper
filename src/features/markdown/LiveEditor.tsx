@@ -37,6 +37,8 @@ export interface LiveEditorProps {
   showCodeLineNumbers?: boolean;
   showEditorLineNumbers?: boolean;
   activeHighlight?: "off" | "line" | "block";
+  /** When false, fenced code blocks scroll horizontally instead of wrapping. */
+  codeWrap?: boolean;
   /** Fired with the main cursor's 0-based line whenever it moves. */
   onCursorLine?: (line: number) => void;
 }
@@ -67,6 +69,7 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
     showCodeLineNumbers = false,
     showEditorLineNumbers = false,
     activeHighlight = "off",
+    codeWrap = true,
     onCursorLine,
   },
   ref,
@@ -230,5 +233,10 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
     });
   }, [activeHighlight]);
 
-  return <div ref={hostRef} className="cm-live-editor h-full overflow-hidden" />;
+  return (
+    <div
+      ref={hostRef}
+      className={`cm-live-editor h-full overflow-hidden ${codeWrap ? "" : "code-nowrap"}`}
+    />
+  );
 });

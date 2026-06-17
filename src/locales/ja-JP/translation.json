@@ -47,7 +47,10 @@
   "markdown": {
     "copied": "コピーしました",
     "copy": "コピー",
-    "emptyHint": "プレビューエリアに現在のノート内容が表示されます"
+    "emptyHint": "プレビューエリアに現在のノート内容が表示されます",
+    "expand": "展開",
+    "collapse": "折りたたむ",
+    "codeCollapsed": "… 折りたたみ済み、クリックで展開"
   },
   "main": {
     "category": {
@@ -304,8 +307,10 @@
       "outlineFollow": "閲覧/編集中にアウトラインが現在の見出しを自動強調",
       "tileDoubleClickToEdit": "タイルをダブルクリックで編集（既定でオフ）",
       "tileSaveReturnsToPin": "手動保存後にタイル表示へ戻る（既定でオフ）",
-      "openAtCursor": "ショートカットで呼び出すとカーソル付近に表示"
-    }
+      "openAtCursor": "ショートカットで呼び出すとカーソル付近に表示",
+      "codeWrap": "プレビュー/ライブで長いコード行を折り返す；オフで横スクロール"
+    },
+    "codeWrap": "コードブロックの折り返し"
   },
   "tile": {
     "empty": "空"

@@ -3350,6 +3350,7 @@ export function MainWindow({
                             content={content}
                             fontSize={settingsConfig?.fontSize ?? 14}
                             renderHtml={settingsConfig?.renderHtmlMarkdown ?? false}
+                            codeWrap={settingsConfig?.codeWrap ?? true}
                             imageBaseDir={imageBaseDir ?? undefined}
                           />
                         </Suspense>
@@ -3377,6 +3378,7 @@ export function MainWindow({
                           showCodeLineNumbers={settingsConfig?.codeBlockLineNumbers ?? false}
                           showEditorLineNumbers={settingsConfig?.editorLineNumbers ?? false}
                           activeHighlight={settingsConfig?.liveActiveHighlight ?? "off"}
+                          codeWrap={settingsConfig?.codeWrap ?? true}
                           placeholder={t("main.editor.contentPlaceholder", {
                             defaultValue: "开始写作……",
                           })}

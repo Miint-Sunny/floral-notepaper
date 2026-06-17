@@ -66,7 +66,10 @@
       "important": "重要",
       "warning": "警告",
       "caution": "注意"
-    }
+    },
+    "expand": "展開",
+    "collapse": "摺疊",
+    "codeCollapsed": "… 已摺疊，點擊展開"
   },
   "main": {
     "category": {
@@ -458,8 +461,10 @@
       "outlineFollow": "閱讀/編輯時大綱自動高亮目前所在標題",
       "tileDoubleClickToEdit": "在磁貼上雙擊直接進入編輯（預設關）",
       "tileSaveReturnsToPin": "小窗手動儲存成功後自動切回磁貼（預設關）",
-      "openAtCursor": "使用快捷鍵喚出時，小窗出現在目前滑鼠附近"
-    }
+      "openAtCursor": "使用快捷鍵喚出時，小窗出現在目前滑鼠附近",
+      "codeWrap": "預覽/即時中長程式碼行自動換行；關閉則改為橫向捲動"
+    },
+    "codeWrap": "程式碼區塊自動換行"
   },
   "tile": {
     "empty": "空"

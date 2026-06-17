@@ -66,7 +66,10 @@
       "important": "Important",
       "warning": "Warning",
       "caution": "Caution"
-    }
+    },
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "codeCollapsed": "… collapsed, click to expand"
   },
   "main": {
     "category": {
@@ -477,8 +480,10 @@
       "outlineFollow": "Outline auto-highlights the current heading as you read/edit",
       "tileDoubleClickToEdit": "Double-click a tile to start editing (off by default)",
       "tileSaveReturnsToPin": "Switch back to the tile after a manual save (off by default)",
-      "openAtCursor": "The quick window opens near the cursor when summoned by shortcut"
-    }
+      "openAtCursor": "The quick window opens near the cursor when summoned by shortcut",
+      "codeWrap": "Wrap long code lines in preview/live; off = horizontal scroll"
+    },
+    "codeWrap": "Code block wrapping"
   },
   "tile": {
     "empty": "Empty"

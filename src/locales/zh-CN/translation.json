@@ -66,7 +66,10 @@
       "important": "重要",
       "warning": "警告",
       "caution": "注意"
-    }
+    },
+    "expand": "展开",
+    "collapse": "折叠",
+    "codeCollapsed": "… 已折叠，点击展开"
   },
   "main": {
     "category": {
@@ -477,8 +480,10 @@
       "outlineFollow": "阅读/编辑时大纲自动高亮当前所在标题",
       "tileDoubleClickToEdit": "在磁贴上双击直接进入编辑（默认关）",
       "tileSaveReturnsToPin": "小窗手动保存成功后自动切回磁贴（默认关）",
-      "openAtCursor": "使用快捷键唤出时，小窗出现在当前鼠标附近"
-    }
+      "openAtCursor": "使用快捷键唤出时，小窗出现在当前鼠标附近",
+      "codeWrap": "预览/即时中长代码行自动换行；关闭则改为横向滚动"
+    },
+    "codeWrap": "代码块自动换行"
   },
   "tile": {
     "empty": "空"
