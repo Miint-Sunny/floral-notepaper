@@ -299,6 +299,24 @@ async fn recycle_notepad_window(app: AppHandle, label: String) -> Result<(), App
     desktop::recycle_notepad_window(&app, &label)
 }
 
+/// Pre-shift the window by `(dx, dy)` logical px before starting an OS drag,
+/// so a JS-side deadzone (e.g. tile double-click-to-edit) does not leave the
+/// window lagging the cursor by the deadzone displacement.
+#[tauri::command]
+fn start_window_drag_with_offset(
+    window: tauri::WebviewWindow,
+    dx: f64,
+    dy: f64,
+) -> Result<(), AppError> {
+    let scale = window.scale_factor()?;
+    let pos = window.outer_position()?;
+    let next_x = pos.x + (dx * scale).round() as i32;
+    let next_y = pos.y + (dy * scale).round() as i32;
+    window.set_position(tauri::PhysicalPosition::new(next_x, next_y))?;
+    window.start_dragging()?;
+    Ok(())
+}
+
 #[tauri::command]
 async fn open_tile_window(
     app: AppHandle,
@@ -457,6 +475,7 @@ pub fn run() {
             stop_shortcut_recording,
             open_notepad_window,
             recycle_notepad_window,
+            start_window_drag_with_offset,
             open_tile_window,
             toggle_tile_window,
             open_note_in_editor,

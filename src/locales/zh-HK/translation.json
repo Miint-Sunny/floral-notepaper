@@ -278,6 +278,8 @@
     },
     "tileCtrlClose": "Ctrl+右鍵快速關閉磁貼",
     "tileRenderMarkdown": "磁貼渲染 Markdown",
+    "tileDoubleClickToEdit": "雙擊磁貼進入編輯",
+    "tileSaveReturnsToPin": "儲存後回到磁貼",
     "renderHtmlMarkdown": "允許 HTML 標籤渲染",
     "splitScrollSync": "分欄同步捲動",
     "codeBlockLineNumbers": "即時模式代碼塊行號",

@@ -71,6 +71,10 @@ pub struct AppConfig {
     #[serde(default = "default_tile_ctrl_close")]
     pub tile_ctrl_close: bool,
     #[serde(default)]
+    pub tile_double_click_to_edit: bool,
+    #[serde(default)]
+    pub tile_save_returns_to_pin: bool,
+    #[serde(default)]
     pub tile_render_markdown: bool,
     #[serde(default)]
     pub render_html_markdown: bool,
@@ -1078,6 +1082,8 @@ impl NoteStore {
             background_position_y: default_background_position(),
             remember_surface_size: default_remember_surface_size(),
             tile_ctrl_close: default_tile_ctrl_close(),
+            tile_double_click_to_edit: false,
+            tile_save_returns_to_pin: false,
             tile_render_markdown: false,
             render_html_markdown: false,
             split_scroll_sync: true,
@@ -1801,6 +1807,8 @@ mod tests {
         assert!(default_config.note_surface_auto_save);
         assert_eq!(default_config.tile_color, "#f6f3ec");
         assert_eq!(default_config.tile_color_mode, "system");
+        assert!(!default_config.tile_double_click_to_edit);
+        assert!(!default_config.tile_save_returns_to_pin);
         assert_eq!(default_config.theme, "system");
         assert_eq!(default_config.locale, "zh-CN");
         assert_eq!(
@@ -1833,6 +1841,8 @@ mod tests {
             background_position_y: 50.0,
             remember_surface_size: true,
             tile_ctrl_close: true,
+            tile_double_click_to_edit: true,
+            tile_save_returns_to_pin: true,
             tile_render_markdown: false,
             render_html_markdown: false,
             split_scroll_sync: true,
@@ -1902,6 +1912,8 @@ mod tests {
         assert!(loaded.note_surface_auto_save);
         assert_eq!(loaded.tile_color, "#f6f3ec");
         assert_eq!(loaded.tile_color_mode, "system");
+        assert!(!loaded.tile_double_click_to_edit);
+        assert!(!loaded.tile_save_returns_to_pin);
         assert_eq!(loaded.theme, "system");
         assert_eq!(loaded.locale, "zh-CN");
         assert_eq!(loaded.font_size, 14);

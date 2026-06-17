@@ -20,6 +20,7 @@ import {
   setCurrentWindowAlwaysOnTop,
   showCurrentWindow,
   startCurrentWindowDrag,
+  startCurrentWindowDragWithOffset,
   startCurrentWindowResize,
 } from "../features/windows/controls";
 import type { ResizeDirection } from "../features/windows/controls";
@@ -30,7 +31,11 @@ import {
   resolveTileColor,
 } from "../features/settings/tileColor";
 import type { TileColorMode } from "../features/settings/types";
-import { shouldSaveBeforeSwitchingToTile } from "../features/windows/noteSurfaceSavePolicy";
+import {
+  shouldEnterPadFromTileOnDoubleClick,
+  shouldReturnToTileAfterManualSave,
+  shouldSaveBeforeSwitchingToTile,
+} from "../features/windows/noteSurfaceSavePolicy";
 import {
   NOTE_SURFACE_ACTION_EVENT,
   surfaceActionFromEvent,
@@ -85,6 +90,15 @@ const surfaceResizeHandles: Array<{
   },
 ];
 
+function isTileControlDoubleClickTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    Boolean(target.closest('button,input,textarea,select,a,[data-surface-resize-handle="true"]'))
+  );
+}
+
+const TILE_DRAG_START_THRESHOLD_PX = 5;
+
 function SurfaceResizeHandles() {
   return (
     <>
@@ -124,12 +138,15 @@ export function NotePad({
   const [tileColorMode, setTileColorMode] = useState<TileColorMode>("system");
   const [surfaceFontSize, setSurfaceFontSize] = useState(14);
   const [tileRenderMarkdown, setTileRenderMarkdown] = useState(false);
+  const [tileDoubleClickToEdit, setTileDoubleClickToEdit] = useState(false);
+  const [tileSaveReturnsToPin, setTileSaveReturnsToPin] = useState(false);
   const [tileColor, setTileColor] = useState(() =>
     resolveTileColor("system", normalizeTileColor(initialTileColor)),
   );
   const [isExiting, setIsExiting] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const tileDragIntentRef = useRef<{ x: number; y: number } | null>(null);
   const windowLabelRef = useRef("");
   const statusRef = useRef<NotePadStatus>("empty");
   const contentValueRef = useRef(content);
@@ -186,6 +203,8 @@ export function NotePad({
           setNoteSurfaceAutoSave(loadedConfig.noteSurfaceAutoSave);
           setSurfaceFontSize(loadedConfig.surfaceFontSize ?? 14);
           setTileRenderMarkdown(loadedConfig.tileRenderMarkdown ?? false);
+          setTileDoubleClickToEdit(loadedConfig.tileDoubleClickToEdit ?? false);
+          setTileSaveReturnsToPin(loadedConfig.tileSaveReturnsToPin ?? false);
           setTileColorRaw(normalizeTileColor(loadedConfig.tileColor));
           setTileColorMode(loadedConfig.tileColorMode ?? "system");
           setTileColor(
@@ -240,6 +259,8 @@ export function NotePad({
       tileColorMode?: TileColorMode;
       surfaceFontSize?: number;
       tileRenderMarkdown?: boolean;
+      tileDoubleClickToEdit?: boolean;
+      tileSaveReturnsToPin?: boolean;
     }>("config-changed", (event) => {
       const mode = event.payload.tileColorMode ?? tileColorMode;
       const raw = event.payload.tileColor ?? tileColorRaw;
@@ -249,6 +270,10 @@ export function NotePad({
       if (event.payload.surfaceFontSize != null) setSurfaceFontSize(event.payload.surfaceFontSize);
       if (event.payload.tileRenderMarkdown != null)
         setTileRenderMarkdown(event.payload.tileRenderMarkdown);
+      if (event.payload.tileDoubleClickToEdit != null)
+        setTileDoubleClickToEdit(event.payload.tileDoubleClickToEdit);
+      if (event.payload.tileSaveReturnsToPin != null)
+        setTileSaveReturnsToPin(event.payload.tileSaveReturnsToPin);
     });
     return () => {
       void unlisten.then((fn) => fn());
@@ -317,7 +342,7 @@ export function NotePad({
     const contentChanged = contentValueRef.current !== content || titleValueRef.current !== title;
     setStatus(contentChanged ? "dirty" : "saved");
     return note;
-  }, [content, editingNoteId, title]);
+  }, [content, editingNoteId, notes, title]);
 
   useEffect(() => {
     const unlisten = listen<UpdateInstallPrepareRequest>("update://prepare-install", (event) => {
@@ -399,12 +424,14 @@ export function NotePad({
       }
 
       try {
+        const currentBounds = await getCurrentWindowBounds();
+        const targetBounds = getSurfaceTargetBounds(nextMode, currentBounds);
+
         if (nextMode === "tile") {
           await setCurrentWindowAlwaysOnTop(true);
         }
 
-        const currentBounds = await getCurrentWindowBounds();
-        await animateCurrentWindowBounds(getSurfaceTargetBounds(nextMode, currentBounds));
+        await animateCurrentWindowBounds(targetBounds);
       } catch (error) {
         showToast(getErrorMessage(error));
       }
@@ -430,14 +457,87 @@ export function NotePad({
     void setCurrentWindowAlwaysOnTop(true).catch(() => undefined);
   }, [surfaceMode]);
 
-  const handleSave = useCallback(async () => {
-    try {
-      await saveNote();
-    } catch (error) {
-      setStatus("saveFailed");
-      showToast(getErrorMessage(error));
+  const handleSave = useCallback(
+    async ({ isAutoSave = false }: { isAutoSave?: boolean } = {}) => {
+      try {
+        const savedNote = await saveNote();
+        if (
+          shouldReturnToTileAfterManualSave({
+            enabled: tileSaveReturnsToPin,
+            noteId: savedNote.id,
+            currentMode: surfaceMode,
+            isAutoSave,
+          })
+        ) {
+          await switchSurfaceMode("tile");
+        }
+      } catch (error) {
+        setStatus("saveFailed");
+        showToast(getErrorMessage(error));
+      }
+    },
+    [saveNote, surfaceMode, switchSurfaceMode, tileSaveReturnsToPin],
+  );
+
+  const clearPendingTileDrag = useCallback(() => {
+    tileDragIntentRef.current = null;
+  }, []);
+
+  useEffect(() => clearPendingTileDrag, [clearPendingTileDrag]);
+
+  useEffect(() => {
+    if (surfaceMode !== "tile" || !tileDoubleClickToEdit) {
+      clearPendingTileDrag();
+      return undefined;
     }
-  }, [saveNote]);
+
+    const handleMouseMove = (event: globalThis.MouseEvent) => {
+      const intent = tileDragIntentRef.current;
+      if (!intent) return;
+      // Pointer left the window during a missed mouseup, etc. — drop the stale intent.
+      if ((event.buttons & 1) === 0) {
+        clearPendingTileDrag();
+        return;
+      }
+
+      const distanceX = event.screenX - intent.x;
+      const distanceY = event.screenY - intent.y;
+      const distance = Math.hypot(distanceX, distanceY);
+      if (distance < TILE_DRAG_START_THRESHOLD_PX) return;
+
+      tileDragIntentRef.current = null;
+      // Compensate for the deadzone drift before handing off to the OS drag.
+      void startCurrentWindowDragWithOffset(distanceX, distanceY).catch(() => undefined);
+    };
+
+    const handleMouseUp = () => clearPendingTileDrag();
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [clearPendingTileDrag, surfaceMode, tileDoubleClickToEdit]);
+
+  const handleTileDoubleClick = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (
+        !shouldEnterPadFromTileOnDoubleClick(
+          tileDoubleClickToEdit,
+          isTileControlDoubleClickTarget(event.target),
+        )
+      ) {
+        return;
+      }
+
+      clearPendingTileDrag();
+      event.preventDefault();
+      event.stopPropagation();
+      void switchSurfaceMode("pad");
+    },
+    [clearPendingTileDrag, switchSurfaceMode, tileDoubleClickToEdit],
+  );
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -494,7 +594,7 @@ export function NotePad({
 
   const handlePin = async () => {
     try {
-      if (shouldSaveBeforeSwitchingToTile(noteSurfaceAutoSave)) {
+      if (shouldSaveBeforeSwitchingToTile(noteSurfaceAutoSave) || !editingNoteId) {
         await saveNote();
       }
       await switchSurfaceMode("tile");
@@ -561,7 +661,7 @@ export function NotePad({
     if (!hasDraftContent()) return undefined;
 
     const timer = window.setTimeout(() => {
-      void handleSave();
+      void handleSave({ isAutoSave: true });
     }, 900);
 
     return () => window.clearTimeout(timer);
@@ -570,6 +670,17 @@ export function NotePad({
   const handleDrag = (event: MouseEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("button,input,textarea")) return;
+
+    if (surfaceMode === "tile" && tileDoubleClickToEdit) {
+      if (event.button !== 0 || event.detail > 1) return;
+      clearPendingTileDrag();
+      tileDragIntentRef.current = {
+        x: event.screenX,
+        y: event.screenY,
+      };
+      return;
+    }
+
     void startCurrentWindowDrag().catch(() => undefined);
   };
 
@@ -604,6 +715,7 @@ export function NotePad({
           data-context-menu="tile"
           data-note-id={tileNoteId}
           onMouseDown={handleDrag}
+          onDoubleClick={handleTileDoubleClick}
         >
           <button
             type="button"
@@ -663,7 +775,7 @@ export function NotePad({
                 </button>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="ml-auto flex items-center gap-1.5">
                 <button
                   onClick={() => void handlePin()}
                   className="group w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 cursor-pointer text-ink-ghost hover:text-ink-faint hover:bg-paper-warm"
