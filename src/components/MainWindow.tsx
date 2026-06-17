@@ -401,6 +401,10 @@ export function MainWindow({
   const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
   const [renameCategoryValue, setRenameCategoryValue] = useState("");
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
+  // 外部文件拖拽重排（会话内；列表本身就是会话级，重启清空）。用独立 dataTransfer 类型，
+  // 不碰 text/plain，避免与"笔记拖到分类"互相触发。
+  const draggedExternalId = useRef<string | null>(null);
+  const [dragOverExternalId, setDragOverExternalId] = useState<string | null>(null);
   const [settingsOverlay, setSettingsOverlay] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 1080 : true,
   );
@@ -1607,6 +1611,20 @@ export function MainWindow({
     }
   };
 
+  // 把拖拽的外部文件移到目标文件所在位置（会话内重排）。
+  const reorderExternalFile = (draggedId: string, targetId: string) => {
+    if (draggedId === targetId) return;
+    setExternalFiles((current) => {
+      const from = current.findIndex((f) => f.id === draggedId);
+      const to = current.findIndex((f) => f.id === targetId);
+      if (from < 0 || to < 0 || from === to) return current;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
   const handleDeleteNote = async (noteId = selectedId) => {
     if (!noteId) return;
 
@@ -2524,10 +2542,41 @@ export function MainWindow({
                         return (
                           <button
                             key={file.id}
+                            draggable
+                            onDragStart={(e) => {
+                              draggedExternalId.current = file.id;
+                              // 用自定义类型而非 text/plain：分类落点读 text/plain，不会被外部文件拖拽误触发。
+                              e.dataTransfer.setData("application/x-floral-external", file.id);
+                              e.dataTransfer.effectAllowed = "move";
+                            }}
+                            onDragOver={(e) => {
+                              if (!draggedExternalId.current) return;
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = "move";
+                              if (dragOverExternalId !== file.id) setDragOverExternalId(file.id);
+                            }}
+                            onDragLeave={() => {
+                              if (dragOverExternalId === file.id) setDragOverExternalId(null);
+                            }}
+                            onDrop={(e) => {
+                              if (!draggedExternalId.current) return;
+                              e.preventDefault();
+                              reorderExternalFile(draggedExternalId.current, file.id);
+                              draggedExternalId.current = null;
+                              setDragOverExternalId(null);
+                            }}
+                            onDragEnd={() => {
+                              draggedExternalId.current = null;
+                              setDragOverExternalId(null);
+                            }}
                             onClick={() => void handleSelectExternalFile(file.id)}
                             onMouseEnter={() => setHoveredId(file.id)}
                             onMouseLeave={() => setHoveredId(null)}
                             className={`w-full text-left rounded-xl px-3 py-2.5 transition-all duration-[600ms] cursor-pointer group relative ${
+                              dragOverExternalId === file.id
+                                ? "ring-1 ring-inset ring-bamboo/50"
+                                : ""
+                            } ${
                               isSelected
                                 ? "bg-bamboo-mist/70"
                                 : isHovered
