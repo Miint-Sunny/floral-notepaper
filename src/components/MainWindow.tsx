@@ -3304,16 +3304,25 @@ export function MainWindow({
               </div>
             </div>
           </div>
-          {settingsConfig && settingsOpen && settingsOverlay && (
-            <div className="absolute inset-0 z-20" onClick={handleCloseSettings} />
-          )}
+          {settingsConfig &&
+            settingsOpen &&
+            settingsOverlay && (
+              // 覆盖层从工具栏下方起（top-10 = 工具栏 h-10），让视图切换（即时/预览）那条工具栏
+              // 仍然可见可点，不被遮罩拦截。
+              <div
+                className="absolute inset-x-0 bottom-0 top-10 z-20"
+                onClick={handleCloseSettings}
+              />
+            )}
           <div
-            className={`relative shrink-0 overflow-hidden h-full transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            className={`relative shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               sidePanelExpanded || mountedSidePanel ? "border-l border-paper-deep/20" : "border-l-0"
             } ${
               settingsOverlay
-                ? `absolute right-0 top-0 bottom-0 z-30 ${visibleSidePanel ? "w-[360px] shadow-xl" : "w-0"}`
-                : `${sidePanelExpanded ? "w-[360px]" : "w-0"}`
+                ? // 悬浮态：从工具栏下方（top-10）展开，避免面板「应用设置」标题与工具栏视图切换相撞；
+                  // 高度由 top-10/bottom-0 决定，故此处不再用 h-full（否则会过约束、底部溢出）。
+                  `absolute right-0 top-10 bottom-0 z-30 ${visibleSidePanel ? "w-[360px] shadow-xl" : "w-0"}`
+                : `h-full ${sidePanelExpanded ? "w-[360px]" : "w-0"}`
             }`}
           >
             <div
