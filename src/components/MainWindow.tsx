@@ -9,6 +9,7 @@ import { exportMarkdownNote, importMarkdownNote } from "../features/importExport
 import { MarkdownPreview } from "../features/markdown/MarkdownPreview";
 import { LiveEditor } from "../features/markdown/LiveEditor";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { parseOutline, type OutlineItem } from "../features/markdown/outline";
 import { showToast } from "./Toast";
 import {
   blockIndexAtOffset,
@@ -38,6 +39,7 @@ import type {
   UpdateState,
 } from "../features/update/types";
 import { BackgroundLayer } from "./BackgroundLayer";
+import { OutlinePanel } from "./OutlinePanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { SlidingButtonGroup } from "./SlidingButtonGroup";
 import {
@@ -333,6 +335,7 @@ export function MainWindow({
     normalizeViewMode(initialConfig?.defaultViewMode ?? "split"),
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [outlineVisible, setOutlineVisible] = useState(false);
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -581,6 +584,32 @@ export function MainWindow({
     [content],
   );
   const charCount = useMemo(() => countNoteChars(content), [content]);
+  const outlineItems = useMemo(() => parseOutline(content), [content]);
+
+  // Jump to a heading from the outline. Pure edit mode scrolls the source
+  // textarea to the heading's line; preview/split scroll the rendered anchor
+  // (same path as the app's in-content heading links).
+  const handleOutlineSelect = useCallback(
+    (item: OutlineItem) => {
+      if (viewMode === "edit") {
+        const textarea = contentRef.current;
+        if (!textarea) return;
+        const offset = content
+          .split("\n")
+          .slice(0, item.line)
+          .reduce((sum, l) => sum + l.length + 1, 0);
+        const lineHeight =
+          parseFloat(getComputedStyle(textarea).lineHeight) ||
+          (settingsConfig?.fontSize ?? 14) * 1.9;
+        textarea.setSelectionRange(offset, offset);
+        textarea.scrollTop = Math.max(0, item.line * lineHeight - lineHeight);
+        return;
+      }
+      const target = previewScrollRef.current?.querySelector(`#${CSS.escape(item.slug)}`);
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    [viewMode, content, settingsConfig?.fontSize],
+  );
 
   const applyNote = useCallback(
     (note: Note) => {
@@ -2647,6 +2676,15 @@ export function MainWindow({
             </div>
           )}
 
+          <div
+            className="border-r border-paper-deep/30 bg-paper/30 shrink-0 overflow-hidden transition-[width] duration-300"
+            style={{ width: outlineVisible ? 220 : 0 }}
+          >
+            <div className="h-full" style={{ width: 220 }}>
+              <OutlinePanel items={outlineItems} onSelect={handleOutlineSelect} />
+            </div>
+          </div>
+
           <div className="flex-1 flex flex-col min-w-0">
             <div className="flex items-center justify-between px-4 h-10 border-b border-paper-deep/20 shrink-0 bg-paper/20">
               <div className="flex items-center gap-1">
@@ -2671,6 +2709,40 @@ export function MainWindow({
                   >
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                     <line x1="9" y1="3" x2="9" y2="21" />
+                  </svg>
+                </button>
+
+                <button
+                  onClick={() => setOutlineVisible((value) => !value)}
+                  aria-pressed={outlineVisible}
+                  aria-label={t("main.outline.title", { defaultValue: "大纲" })}
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                    outlineVisible
+                      ? "text-bamboo bg-bamboo-mist/50 hover:bg-bamboo-mist/70"
+                      : "text-ink-ghost hover:text-ink-faint hover:bg-paper-warm"
+                  }`}
+                  title={
+                    outlineVisible
+                      ? t("main.outline.hide", { defaultValue: "隐藏大纲" })
+                      : t("main.outline.show", { defaultValue: "显示大纲" })
+                  }
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="8" y1="6" x2="21" y2="6" />
+                    <line x1="8" y1="12" x2="21" y2="12" />
+                    <line x1="8" y1="18" x2="21" y2="18" />
+                    <line x1="3" y1="6" x2="3.01" y2="6" />
+                    <line x1="3" y1="12" x2="3.01" y2="12" />
+                    <line x1="3" y1="18" x2="3.01" y2="18" />
                   </svg>
                 </button>
 
