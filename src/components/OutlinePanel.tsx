@@ -20,8 +20,8 @@ export function OutlinePanel({ items, activeSlug, onSelect }: OutlinePanelProps)
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center h-10 px-4 border-b border-paper-deep/20 shrink-0">
-        <span className="text-[10px] text-ink-ghost font-mono tracking-widest uppercase">
+      <div className="flex items-center min-h-10 px-4 border-b border-paper-deep/20 shrink-0">
+        <span className="text-[11px] font-medium text-ink-faint tracking-wide">
           {t("main.outline.title", { defaultValue: "大纲" })}
         </span>
       </div>

@@ -98,6 +98,25 @@ function App() {
     return () => document.removeEventListener("keydown", preventSystemMenu, true);
   }, []);
 
+  // 滚动条自动隐藏：滚动时给被滚动元素加 .is-scrolling 类（App.css 据此显出绿描边滑块），
+  // 停止滚动 3s 后移除 → 滑块淡出隐藏。scroll 不冒泡，用捕获阶段全局监听。
+  useEffect(() => {
+    const timers = new WeakMap<HTMLElement, number>();
+    const onScroll = (event: Event) => {
+      const el = event.target;
+      if (!(el instanceof HTMLElement)) return;
+      el.classList.add("is-scrolling");
+      const prev = timers.get(el);
+      if (prev) window.clearTimeout(prev);
+      timers.set(
+        el,
+        window.setTimeout(() => el.classList.remove("is-scrolling"), 3000),
+      );
+    };
+    document.addEventListener("scroll", onScroll, true);
+    return () => document.removeEventListener("scroll", onScroll, true);
+  }, []);
+
   return (
     <ContextMenuProvider>
       <div className="app-window-shell h-screen font-body text-ink overflow-hidden">

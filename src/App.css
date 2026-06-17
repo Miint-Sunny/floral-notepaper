@@ -231,17 +231,29 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 9px;
+  height: 9px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+/* 统一滚动条：默认透明（占位不抖动）；滚动中 / 悬停时显出主题绿描边滑块（绿环 + 浅绿填充）。
+   滚动停止 3s 后由 JS 去掉 .is-scrolling 而自动隐藏（见 App.tsx 全局 scroll 监听）。 */
 ::-webkit-scrollbar-thumb {
-  background: var(--color-ink-ghost);
-  border-radius: 2px;
+  background-color: transparent;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+:hover::-webkit-scrollbar-thumb,
+.is-scrolling::-webkit-scrollbar-thumb {
+  background-color: var(--color-bamboo-mist);
+  border-color: var(--color-bamboo);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-ink-faint);
+  background-color: var(--color-bamboo);
+  border-color: var(--color-bamboo);
 }
 
 .scrollbar-hidden::-webkit-scrollbar {
