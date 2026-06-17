@@ -108,8 +108,9 @@ const LiveEditor = lazy(() =>
 
 /** Width of the Outline column when expanded (px). */
 const OUTLINE_WIDTH = 220;
-// 工具栏窄于此值（px）时隐藏视图切换（编辑/分栏/即时/预览），避免被左侧按钮 + 设置面板挤压换行。
-const TOOLBAR_TOGGLE_MIN_WIDTH = 480;
+const SIDE_PANEL_WIDTH = 360;
+// 设置/关于面板以兄弟态展开后，编辑区低于此宽（px）就改用悬浮覆盖态，避免挤压工具栏视图切换。
+const MIN_EDITOR_WITH_PANEL = 480;
 
 /** The heading anchor nearest the top of the scrolled preview container. */
 function activeSlugFromPreview(items: OutlineItem[], container: HTMLElement): string | null {
@@ -410,12 +411,6 @@ export function MainWindow({
   const [settingsOverlay, setSettingsOverlay] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 1080 : true,
   );
-  // 悬浮设置面板需从工具栏正下方展开。工具栏虽是固定 h-10，但窄窗下视图切换(编辑/分栏/即时/预览)
-  // 会被挤到换行、内容高过 40px → 写死 top-10 会被压住。故实测工具栏真实高度作为悬浮层的 top。
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  const [toolbarHeight, setToolbarHeight] = useState(40);
-  // 工具栏窄于此宽（左侧动作按钮 + 视图切换约需的宽度）时，隐藏视图切换避免被挤压换行。
-  const [toolbarNarrow, setToolbarNarrow] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(initialConfig?.sidebarWidth ?? 280);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [outlineWidth, setOutlineWidth] = useState(initialConfig?.outlineWidth ?? OUTLINE_WIDTH);
@@ -1029,26 +1024,21 @@ export function MainWindow({
     return () => window.removeEventListener("focus", handleFocus);
   }, [refreshNotes]);
 
+  // 设置/关于面板：以 flex 兄弟态展开会把编辑区挤窄、视图切换换行被挤压。改为——当"假如以兄弟态
+  // 展开后编辑区宽 < MIN_EDITOR_WITH_PANEL"时切到悬浮态：面板**直接盖在工具栏那层上**（不挤压、
+  // 不需要隐藏切换、无闪烁）；宽窗仍并排展开。阈值随边栏/大纲宽变化重算。
   useEffect(() => {
-    const onResize = () => setSettingsOverlay(window.innerWidth < 1080);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  // 实测工具栏高度（供悬浮面板从其正下方展开）+ 宽度。窄到放不下视图切换时隐藏切换，
-  // 而不是让它换行被挤压（宽度判定不受隐藏影响，故不会抖动循环）。
-  useEffect(() => {
-    const el = toolbarRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const measure = () => {
-      setToolbarHeight(el.offsetHeight);
-      setToolbarNarrow(el.clientWidth < TOOLBAR_TOGGLE_MIN_WIDTH);
+    const compute = () => {
+      const usable =
+        window.innerWidth -
+        (sidebarCollapsed ? 0 : sidebarWidth) -
+        (outlineVisible ? outlineWidth : 0);
+      setSettingsOverlay(usable - SIDE_PANEL_WIDTH < MIN_EDITOR_WITH_PANEL);
     };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, [sidebarCollapsed, sidebarWidth, outlineVisible, outlineWidth]);
 
   useEffect(() => {
     const unlisten = listen<string>("open-external-file", (event) => {
@@ -2993,10 +2983,7 @@ export function MainWindow({
           )}
 
           <div className="flex-1 flex flex-col min-w-0">
-            <div
-              ref={toolbarRef}
-              className="flex items-center justify-between gap-2 px-4 min-h-10 border-b border-paper-deep/20 shrink-0 bg-paper/20"
-            >
+            <div className="flex items-center justify-between gap-2 px-4 min-h-10 border-b border-paper-deep/20 shrink-0 bg-paper/20">
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => {
@@ -3226,14 +3213,12 @@ export function MainWindow({
                 )}
               </div>
 
-              {!toolbarNarrow && (
-                <SlidingButtonGroup
-                  options={viewModeOptions}
-                  value={viewMode}
-                  onChange={setViewMode}
-                  buttonClassName="px-3 py-1"
-                />
-              )}
+              <SlidingButtonGroup
+                options={viewModeOptions}
+                value={viewMode}
+                onChange={setViewMode}
+                buttonClassName="px-3 py-1"
+              />
             </div>
 
             <div
@@ -3506,27 +3491,18 @@ export function MainWindow({
               </div>
             </div>
           </div>
-          {settingsConfig &&
-            settingsOpen &&
-            settingsOverlay && (
-              // 遮罩从工具栏正下方起（top = 实测工具栏高度），让视图切换（即时/预览）那条工具栏
-              // 仍然可见可点、不被遮罩拦截。
-              <div
-                className="absolute inset-x-0 bottom-0 z-20"
-                style={{ top: toolbarHeight }}
-                onClick={handleCloseSettings}
-              />
-            )}
+          {settingsConfig && settingsOpen && settingsOverlay && (
+            <div className="absolute inset-0 z-20" onClick={handleCloseSettings} />
+          )}
           <div
-            style={settingsOverlay ? { top: toolbarHeight } : undefined}
-            className={`relative shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            className={`relative shrink-0 overflow-hidden h-full transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               sidePanelExpanded || mountedSidePanel ? "border-l border-paper-deep/20" : "border-l-0"
             } ${
               settingsOverlay
-                ? // 悬浮态：从工具栏正下方（top = 实测工具栏高度）展开，避免面板「应用设置」标题与
-                  // 工具栏视图切换相撞；高度由 top/bottom-0 决定，故此处不用 h-full（否则过约束、底部溢出）。
-                  `absolute right-0 bottom-0 z-30 ${visibleSidePanel ? "w-[360px] shadow-xl" : "w-0"}`
-                : `h-full ${sidePanelExpanded ? "w-[360px]" : "w-0"}`
+                ? // 悬浮覆盖态：从顶部(top-0)直接盖在工具栏那层上、bg-cloud 不透明，干净盖住视图切换，
+                  // 不挤压、不需要隐藏切换、无闪烁（左侧动作按钮在 360px 面板左侧仍可见）。
+                  `absolute right-0 top-0 bottom-0 z-30 bg-cloud ${visibleSidePanel ? "w-[360px] shadow-xl" : "w-0"}`
+                : `${sidePanelExpanded ? "w-[360px]" : "w-0"}`
             }`}
           >
             <div
