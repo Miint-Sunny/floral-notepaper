@@ -2365,14 +2365,8 @@ export function MainWindow({
             className="border-r border-paper-deep/30 bg-paper/40 shrink-0 overflow-hidden transition-[width] duration-[600ms]"
             style={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
           >
-            <div
-              className="flex flex-col h-full"
-              style={{
-                // 列宽不变、只缩放内容：内层逻辑宽 = 列宽/缩放，zoom 放大后回到列宽。
-                width: `${sidebarWidth / (settingsConfig?.sidebarZoom ?? 1)}px`,
-                zoom: settingsConfig?.sidebarZoom ?? 1,
-              }}
-            >
+            {/* zoom 不放这层（祖先缩放会让笔记列表滚动条内缩）；改由列表滚动容器内部缩放，见下方 space-y。 */}
+            <div className="flex flex-col h-full" style={{ width: `${sidebarWidth}px` }}>
               {/* 计数栏 + 操作图标：新建笔记(文件+) / 导入(↓) / 新建分类(文件夹+)，图标各异以区分 */}
               <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-1.5 shrink-0">
                 <span className="text-[10px] text-ink-ghost font-mono tracking-wider uppercase truncate">
@@ -2527,7 +2521,18 @@ export function MainWindow({
               )}
 
               <div className="flex-1 overflow-y-auto px-2 pb-2">
-                <div className="space-y-0.5">
+                {/* 缩放放滚动容器内部这层（祖先缩放会让滚动条内缩）；宽度 1/zoom 补偿，缩放后填满。 */}
+                <div
+                  className="space-y-0.5"
+                  style={
+                    (settingsConfig?.sidebarZoom ?? 1) === 1
+                      ? undefined
+                      : {
+                          zoom: settingsConfig?.sidebarZoom ?? 1,
+                          width: `${100 / (settingsConfig?.sidebarZoom ?? 1)}%`,
+                        }
+                  }
+                >
                   {externalFiles.length > 0 && (
                     <>
                       <div className="px-3 py-1.5 text-[10px] text-ink-ghost/50 font-mono tracking-wider uppercase">
@@ -2951,17 +2956,14 @@ export function MainWindow({
             }`}
             style={{ width: outlineVisible ? outlineWidth : 0 }}
           >
-            <div
-              className="h-full"
-              style={{
-                width: outlineWidth / (settingsConfig?.outlineZoom ?? 1),
-                zoom: settingsConfig?.outlineZoom ?? 1,
-              }}
-            >
+            {/* zoom 不放这层（祖先缩放会让大纲滚动条内缩，见 OutlinePanel 内注）；改由 OutlinePanel
+                在滚动容器内部缩放。 */}
+            <div className="h-full" style={{ width: outlineWidth }}>
               <OutlinePanel
                 items={outlineItems}
                 activeSlug={outlineTracking ? activeOutlineSlug : null}
                 onSelect={handleOutlineSelect}
+                zoom={settingsConfig?.outlineZoom ?? 1}
               />
             </div>
           </div>
