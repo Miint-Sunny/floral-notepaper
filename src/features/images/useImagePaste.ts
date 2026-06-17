@@ -1,6 +1,9 @@
 import { useCallback, useRef } from "react";
 import type { TFunction } from "i18next";
 import { saveImage } from "./api";
+import { imageExtensionFromFile } from "./insertImage";
+
+export { imageExtensionFromFile };
 
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
 
@@ -12,8 +15,6 @@ const MIME_TO_EXT: Record<string, string> = {
   "image/bmp": "bmp",
   "image/svg+xml": "svg",
 };
-
-const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"]);
 
 interface UseImagePasteOptions {
   noteId: string | null;
@@ -40,14 +41,6 @@ async function processImageFile(file: File, noteId: string, t?: TFunction): Prom
   const buffer = await file.arrayBuffer();
   const data = Array.from(new Uint8Array(buffer));
   return saveImage(noteId, data, ext);
-}
-
-export function imageExtensionFromFile(file: Pick<File, "name" | "type">): string | null {
-  const mimeExt = MIME_TO_EXT[file.type];
-  if (mimeExt) return mimeExt;
-
-  const extension = file.name.split(".").pop()?.toLowerCase();
-  return extension && IMAGE_EXTENSIONS.has(extension) ? extension : null;
 }
 
 function isImageFile(file: Pick<File, "name" | "type">): boolean {

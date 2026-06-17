@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import type { ChangeEvent, MouseEvent } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -58,7 +58,12 @@ import {
   saveExternalFile,
   updateNote,
 } from "../features/notes/api";
-import { cleanUnusedImages, saveImageFromPath } from "../features/images/api";
+import { cleanUnusedImages, saveImage, saveImageFromPath } from "../features/images/api";
+import {
+  imageExtensionFromFile,
+  insertMarkdownAtSelection,
+  markdownImageText,
+} from "../features/images/insertImage";
 import { useImagePaste, insertTextAtCursor } from "../features/images/useImagePaste";
 import { useImageBaseDir } from "../features/images/useImageBaseDir";
 import type { ExternalFile, Note, NoteMetadata } from "../features/notes/types";
@@ -409,6 +414,7 @@ export function MainWindow({
   const measureRafRef = useRef<number>(0);
   const measureControllerRef = useRef<AbortController | null>(null);
   const prevSelectedIdRef = useRef(selectedId);
+  const localImageInputRef = useRef<HTMLInputElement>(null);
   const externalFileMtimeRef = useRef<number>(0);
   const lastExternalSaveRef = useRef<number>(0);
   const imageBaseDir = useImageBaseDir();
@@ -1681,6 +1687,45 @@ export function MainWindow({
     onError: showToast,
     t,
   });
+
+  const handleInsertLocalImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || isExternal) return;
+
+    setErrorMessage(null);
+    try {
+      const ext = imageExtensionFromFile(file);
+      if (!ext) {
+        setErrorMessage(t("errors.unsupportedImageFormat", { defaultValue: "不支持的图片格式" }));
+        return;
+      }
+
+      const resolvedId = selectedId ?? (await ensureNoteSaved());
+      if (!resolvedId) return;
+
+      const textarea = contentRef.current;
+      if (!textarea) return;
+
+      const buffer = await file.arrayBuffer();
+      const relativePath = await saveImage(resolvedId, Array.from(new Uint8Array(buffer)), ext);
+      const next = insertMarkdownAtSelection(
+        textarea.value,
+        textarea.selectionStart,
+        textarea.selectionEnd,
+        markdownImageText(relativePath),
+      );
+
+      setContent(next.value);
+      markDirty();
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(next.cursor, next.cursor);
+      });
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    }
+  };
 
   const handleCleanUnusedImages = async () => {
     if (!selectedId || isExternal) return;
@@ -3018,6 +3063,13 @@ export function MainWindow({
                       style={{ width: viewMode === "split" ? `${splitRatio * 100}%` : "100%" }}
                     >
                       <div className="flex items-center gap-0.5 px-4 pt-2 pb-1 shrink-0">
+                        <input
+                          ref={localImageInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif,image/webp,image/bmp,image/svg+xml"
+                          className="hidden"
+                          onChange={(event) => void handleInsertLocalImage(event)}
+                        />
                         {toolbarButtons.map((button) => (
                           <button
                             key={button.label}
@@ -3039,6 +3091,16 @@ export function MainWindow({
                             {button.label}
                           </button>
                         ))}
+                        <button
+                          type="button"
+                          title={t("main.toolbar.image", { defaultValue: "插入图片" })}
+                          disabled={!selectedId || isExternal}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => localImageInputRef.current?.click()}
+                          className="w-6 h-6 flex items-center justify-center rounded text-[11px] text-ink-ghost hover:text-ink-faint hover:bg-paper-warm disabled:opacity-40 disabled:hover:bg-transparent transition-all cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          🖼
+                        </button>
                       </div>
 
                       <div className="flex-1 overflow-hidden px-5 pb-4">
