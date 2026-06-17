@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AboutPanel } from "./AboutPanel";
-import { exportMarkdownNote, importMarkdownNote } from "../features/importExport/api";
+import { exportMarkdownNote, importMarkdownNotes } from "../features/importExport/api";
 import { MarkdownPreview } from "../features/markdown/MarkdownPreview";
 import { LiveEditor, type LiveEditorHandle } from "../features/markdown/LiveEditor";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -1440,11 +1440,13 @@ export function MainWindow({
       const saved = await saveCurrentNote();
       if (!saved) return;
 
-      const note = await importMarkdownNote(activeCategory);
-      if (!note) return;
+      const importedNotes = await importMarkdownNotes(activeCategory);
+      if (importedNotes.length === 0) return;
 
-      replaceNoteMetadata(note);
-      applyNote(note);
+      for (const note of importedNotes) {
+        replaceNoteMetadata(note);
+      }
+      applyNote(importedNotes[importedNotes.length - 1]);
     } catch (error) {
       showToast(getErrorMessage(error));
     }
