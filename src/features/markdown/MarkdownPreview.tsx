@@ -1,16 +1,13 @@
-import { memo, useState, useCallback, useMemo } from "react";
+import { memo, useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeSlug from "rehype-slug";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Components } from "react-markdown";
-import "katex/dist/katex.min.css";
 import remarkAlerts from "./remarkAlerts";
 import { Mermaid } from "./Mermaid";
 import { resolveMarkdownImageSrc } from "./imageSrc";
@@ -171,7 +168,7 @@ interface MarkdownPreviewProps {
   imageBaseDir?: string;
 }
 
-const remarkPlugins = [remarkGfm, remarkMath, remarkAlerts];
+const remarkPluginsBase = [remarkGfm, remarkAlerts];
 const sanitizeSchema = {
   ...defaultSchema,
   tagNames: [...(defaultSchema.tagNames ?? []), "mark", "center", "font", "u", "abbr"],
@@ -188,13 +185,25 @@ const sanitizeSchema = {
     abbr: ["title"],
   },
 };
-const rehypePluginsDefault = [rehypeKatex, rehypeSlug];
-const rehypePluginsWithHtml = [
-  rehypeRaw,
-  [rehypeSanitize, sanitizeSchema],
-  rehypeKatex,
-  rehypeSlug,
-] as Parameters<typeof Markdown>[0]["rehypePlugins"];
+// 基础 rehype 插件（不含 katex）。katex 在文档含公式时按需追加（见 loadKatex）。
+const rehypePluginsBase = [rehypeSlug];
+const rehypePluginsWithHtmlBase = [rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeSlug];
+
+// katex（remark-math + rehype-katex + 样式）按需动态加载：原先三者静态进 chunk，使每个预览
+// （含空/无公式笔记）都付 katex JS+CSS。改为仅当文档含 "$" 时才动态 import 其独立 chunk（promise
+// 缓存复用，全局只加载一次）。代价：首次遇到公式的一两帧会先显示原始 $...$ 再渲染——Tauri 内
+// chunk 是本地文件、加载极快，闪烁很短，且每会话仅首次。
+let katexPromise: Promise<{ remarkMath: unknown; rehypeKatex: unknown }> | null = null;
+function loadKatex(): Promise<{ remarkMath: unknown; rehypeKatex: unknown }> {
+  if (!katexPromise) {
+    katexPromise = Promise.all([
+      import("remark-math"),
+      import("rehype-katex"),
+      import("katex/dist/katex.min.css"),
+    ]).then(([rm, rk]) => ({ remarkMath: rm.default, rehypeKatex: rk.default }));
+  }
+  return katexPromise;
+}
 
 function AlertIcon({ type }: { type: string }) {
   switch (type) {
@@ -418,12 +427,44 @@ function MarkdownPreviewImpl({
     }),
     [imageBaseDir, codeWrap],
   );
+
+  // 含公式时按需加载 katex；加载完成前公式以原始文本短暂呈现（见 loadKatex 注释）。
+  const hasMath = useMemo(() => content.includes("$"), [content]);
+  const [katexPlugins, setKatexPlugins] = useState<{
+    remarkMath: unknown;
+    rehypeKatex: unknown;
+  } | null>(null);
+  useEffect(() => {
+    if (!hasMath || katexPlugins) return;
+    let active = true;
+    void loadKatex().then((loaded) => {
+      if (active) setKatexPlugins(loaded);
+    });
+    return () => {
+      active = false;
+    };
+  }, [hasMath, katexPlugins]);
+
+  const remarkPlugins = useMemo<Parameters<typeof Markdown>[0]["remarkPlugins"]>(
+    () =>
+      (katexPlugins
+        ? [...remarkPluginsBase, katexPlugins.remarkMath]
+        : remarkPluginsBase) as Parameters<typeof Markdown>[0]["remarkPlugins"],
+    [katexPlugins],
+  );
+  const rehypePlugins = useMemo<Parameters<typeof Markdown>[0]["rehypePlugins"]>(() => {
+    const base = renderHtml ? rehypePluginsWithHtmlBase : rehypePluginsBase;
+    return (katexPlugins ? [...base, katexPlugins.rehypeKatex] : base) as Parameters<
+      typeof Markdown
+    >[0]["rehypePlugins"];
+  }, [katexPlugins, renderHtml]);
+
   return (
     <div className="font-body markdown-selectable" style={{ fontSize: `${fontSize}px` }}>
       {content.trim() ? (
         <Markdown
           remarkPlugins={remarkPlugins}
-          rehypePlugins={renderHtml ? rehypePluginsWithHtml : rehypePluginsDefault}
+          rehypePlugins={rehypePlugins}
           components={components}
         >
           {content}
