@@ -95,11 +95,24 @@ function CodeBlock({
   }, [children]);
 
   return (
-    <pre
-      className={`my-3 px-4 pt-8 pb-3 rounded bg-paper-warm/80 relative group ${
-        codeWrap ? "whitespace-pre-wrap break-words" : "overflow-x-auto"
-      }`}
-    >
+    <div className="markdown-code-block my-3 relative group">
+      <pre
+        className={`markdown-code-scroll m-0 px-4 pt-8 pb-3 rounded bg-paper-warm/80 ${
+          codeWrap ? "whitespace-pre-wrap break-words" : "overflow-x-auto"
+        }`}
+      >
+        {collapsed ? (
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            className="block w-full text-left text-[11px] text-ink-ghost/70 select-none cursor-pointer"
+          >
+            {t("markdown.codeCollapsed", { defaultValue: "… 已折叠，点击展开" })}
+          </button>
+        ) : (
+          children
+        )}
+      </pre>
       <span className="cm-md-code-toolbar">
         {language && <span className="cm-md-code-lang">{language}</span>}
         <button
@@ -133,18 +146,7 @@ function CodeBlock({
           {collapsed ? CHEVRON_DOWN_SVG : CHEVRON_UP_SVG}
         </button>
       </span>
-      {collapsed ? (
-        <button
-          type="button"
-          onClick={() => setCollapsed(false)}
-          className="block w-full text-left text-[11px] text-ink-ghost/70 select-none cursor-pointer"
-        >
-          {t("markdown.codeCollapsed", { defaultValue: "… 已折叠，点击展开" })}
-        </button>
-      ) : (
-        children
-      )}
-    </pre>
+    </div>
   );
 }
 
