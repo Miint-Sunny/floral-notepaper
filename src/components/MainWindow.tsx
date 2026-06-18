@@ -2521,16 +2521,14 @@ export function MainWindow({
               )}
 
               <div className="flex-1 overflow-y-auto px-2 pb-2">
-                {/* 缩放放滚动容器内部这层（祖先缩放会让滚动条内缩）；宽度 1/zoom 补偿，缩放后填满。 */}
+                {/* 缩放放滚动容器内部这层（祖先缩放会让滚动条内缩）。只设 zoom、不动 width：
+                    zoom 下 width:auto 正好填满，写 100/zoom% 反而把内容缩窄。 */}
                 <div
                   className="space-y-0.5"
                   style={
                     (settingsConfig?.sidebarZoom ?? 1) === 1
                       ? undefined
-                      : {
-                          zoom: settingsConfig?.sidebarZoom ?? 1,
-                          width: `${100 / (settingsConfig?.sidebarZoom ?? 1)}%`,
-                        }
+                      : { zoom: settingsConfig?.sidebarZoom ?? 1 }
                   }
                 >
                   {externalFiles.length > 0 && (

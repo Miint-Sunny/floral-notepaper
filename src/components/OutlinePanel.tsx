@@ -14,9 +14,10 @@ interface OutlinePanelProps {
 export function OutlinePanel({ items, activeSlug, onSelect, zoom = 1 }: OutlinePanelProps) {
   const { t } = useTranslation();
   const activeRef = useRef<HTMLButtonElement>(null);
-  // 缩放放在滚动容器 <nav> 内部的这一层，而不是 <nav> 的祖先——否则 WebKit 下 zoom≠1 会让 <nav>
-  // 的原生滚动条内缩、不贴边。宽度按 1/zoom 补偿，缩放后正好填满 <nav>，不产生横向溢出。
-  const zoomStyle = zoom === 1 ? undefined : { zoom, width: `${100 / zoom}%` };
+  // 缩放放在滚动容器 <nav> 内部的这一层（不是 <nav> 的祖先——否则 WebKit 下原生滚动条会内缩）。
+  // 只设 zoom、不动 width：实测 zoom 下 width:auto(100%) 正好填满 <nav>、内容随之放大、无横向溢出；
+  // 若再写 width:100/zoom% 反而会把内容缩窄（== 之前"内缩"的真因）。
+  const zoomStyle = zoom === 1 ? undefined : { zoom };
 
   // Keep the followed heading visible as the cursor/scroll moves through the doc.
   useEffect(() => {
