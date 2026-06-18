@@ -36,7 +36,7 @@ export interface LiveEditorProps {
   resolveImageSrc?: (src: string) => string;
   showCodeLineNumbers?: boolean;
   showEditorLineNumbers?: boolean;
-  activeHighlight?: "off" | "line" | "block";
+  activeHighlight?: "off" | "line" | "block" | "block-line";
   /**
    * Identity of the document currently shown (e.g. note id / external file path).
    * Lets value-sync tell a *switch* (docKey changes → cursor may reset) apart from
@@ -89,7 +89,9 @@ export function LiveEditor({
     livePreview({
       resolveImageSrc: (src) => resolveImageSrcRef.current(src),
       showCodeLineNumbers: showCodeLineNumbersRef.current,
-      activeBlock: activeHighlightRef.current === "block",
+      activeBlock:
+        activeHighlightRef.current === "block" || activeHighlightRef.current === "block-line",
+      activeLineInBlock: activeHighlightRef.current === "block-line",
     });
 
   // Create the editor once on mount.

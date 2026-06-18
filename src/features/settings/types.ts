@@ -28,7 +28,7 @@ export interface AppConfig {
   splitScrollSync: boolean;
   codeBlockLineNumbers: boolean;
   editorLineNumbers: boolean;
-  liveActiveHighlight: "off" | "line" | "block";
+  liveActiveHighlight: "off" | "line" | "block" | "block-line";
   surfaceWidth?: number;
   surfaceHeight?: number;
   toggleVisibilityShortcut: string;

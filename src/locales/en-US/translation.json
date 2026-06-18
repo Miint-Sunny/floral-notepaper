@@ -212,6 +212,7 @@
     "closeToTray": "Close to Tray",
     "activeHighlight": {
       "block": "Block",
+      "blockLine": "Block+Line",
       "label": "Highlight active line/block (Live)",
       "line": "Line",
       "off": "Off"

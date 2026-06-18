@@ -212,6 +212,7 @@
     "closeToTray": "關閉至系統匣",
     "activeHighlight": {
       "block": "塊",
+      "blockLine": "塊+行",
       "label": "即時模式高光當前行/塊",
       "line": "行",
       "off": "關"
