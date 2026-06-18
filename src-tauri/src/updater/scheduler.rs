@@ -6,7 +6,10 @@ use tauri::{AppHandle, Emitter, Manager};
 
 const INITIAL_DELAY: Duration = Duration::from_secs(3);
 // 动态休眠边界：距下次到期还远时最多睡 MAX_SLEEP（不再固定每 60s 空转读盘解析 settings）；
-// 临近到期时睡剩余时长，但至少 MIN_SLEEP，避免忙轮询。检查及时性仍在 MIN 粒度内（同原 60s）。
+// 临近到期时睡剩余时长，但至少 MIN_SLEEP，避免忙轮询。
+// 取舍：调度线程不被 settings 写入唤醒，故「关闭自动检查 / 读 settings 失败」时退到 MAX_SLEEP，
+// 「重新开启 / 改短间隔」最坏需约 15min 才被感知（用户可走手动检查）。后台更新检查默认 24h、
+// 不时间敏感，用 ~15min 粒度换掉每分钟空转读盘是有意为之。
 const MIN_SLEEP: Duration = Duration::from_secs(60);
 const MAX_SLEEP: Duration = Duration::from_secs(15 * 60);
 

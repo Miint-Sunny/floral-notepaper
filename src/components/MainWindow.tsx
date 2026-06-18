@@ -2197,6 +2197,9 @@ export function MainWindow({
       const elNext = preview.querySelector<HTMLElement>(`[data-block-index="${i + 1}"]`);
       const pEnd = elNext ? topOf(elNext) : preview.scrollHeight - preview.clientHeight;
 
+      // 写入前续锁：rAF 触发时刻与事件解耦，若被长任务推迟超 150ms，续锁保证程序化写入
+      // 触发的反向 scroll 事件仍被挡住、不回弹。
+      lockScrollSource("editor");
       preview.scrollTop = pStart + frac * (pEnd - pStart);
     });
   }, [viewMode, lockScrollSource, scheduleScrollSync]);
@@ -2243,6 +2246,8 @@ export function MainWindow({
       const editorStart = offsets[i];
       const editorEnd =
         i + 1 < offsets.length ? offsets[i + 1] : textarea.scrollHeight - textarea.clientHeight;
+      // 写入前续锁（同 handleEditorScroll）。
+      lockScrollSource("preview");
       textarea.scrollTop = editorStart + frac * (editorEnd - editorStart);
     });
   }, [viewMode, lockScrollSource, scheduleScrollSync]);
