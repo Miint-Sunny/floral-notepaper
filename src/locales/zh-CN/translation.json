@@ -118,6 +118,12 @@
       "newNote": "新建笔记",
       "searchPlaceholder": "搜索笔记…"
     },
+    "outline": {
+      "title": "大纲",
+      "empty": "暂无标题",
+      "show": "显示大纲",
+      "hide": "隐藏大纲"
+    },
     "images": {
       "cleanUnused": "清理未使用图片",
       "cleaned": "已清理 {{count}} 张图片",
