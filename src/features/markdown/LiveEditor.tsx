@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Annotation, Compartment, EditorState } from "@codemirror/state";
+import { Annotation, Compartment, EditorState, type TransactionSpec } from "@codemirror/state";
 import {
   EditorView,
   highlightActiveLine,
@@ -37,6 +37,12 @@ export interface LiveEditorProps {
   showCodeLineNumbers?: boolean;
   showEditorLineNumbers?: boolean;
   activeHighlight?: "off" | "line" | "block";
+  /**
+   * Identity of the document currently shown (e.g. note id / external file path).
+   * Lets value-sync tell a *switch* (docKey changes → cursor may reset) apart from
+   * an in-place *reload* of the same doc (docKey unchanged → preserve the cursor).
+   */
+  docKey?: string | number;
 }
 
 const identity = (src: string) => src;
@@ -57,9 +63,12 @@ export function LiveEditor({
   showCodeLineNumbers = false,
   showEditorLineNumbers = false,
   activeHighlight = "off",
+  docKey,
 }: LiveEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  // Tracks the docKey of the value currently in the editor (see value-sync below).
+  const lastDocKeyRef = useRef(docKey);
   const themeCompartment = useRef(new Compartment());
   const previewCompartment = useRef(new Compartment());
   const editableCompartment = useRef(new Compartment());
@@ -129,17 +138,32 @@ export function LiveEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync external value changes (e.g. switching notes) into the editor.
+  // Sync external value changes (switching notes / external-file reloads) into the editor.
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
+    // 是否仍是同一篇文档（仅 value 变、docKey 未变）= 原地回读，需保留光标。
+    const sameDoc = docKey !== undefined && docKey === lastDocKeyRef.current;
+    lastDocKeyRef.current = docKey;
+
     const current = view.state.doc.toString();
     if (value === current) return;
-    view.dispatch({
+
+    const spec: TransactionSpec = {
       changes: { from: 0, to: current.length, insert: value },
       annotations: externalSync.of(true),
-    });
-  }, [value]);
+    };
+    // 原地回读（如外部文件 mtime 轮询、被别的程序改动后重载）整篇替换会丢光标 →
+    // 保留并钳制原选区，避免光标乱跳。切换到另一篇（docKey 改变）则不保留、沿用归位行为。
+    if (sameDoc) {
+      const prev = view.state.selection.main;
+      spec.selection = {
+        anchor: Math.min(prev.anchor, value.length),
+        head: Math.min(prev.head, value.length),
+      };
+    }
+    view.dispatch(spec);
+  }, [value, docKey]);
 
   // React to font-size changes.
   useEffect(() => {
