@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Compartment, EditorState } from "@codemirror/state";
+import { Annotation, Compartment, EditorState } from "@codemirror/state";
 import {
   EditorView,
   highlightActiveLine,
@@ -40,6 +40,11 @@ export interface LiveEditorProps {
 }
 
 const identity = (src: string) => src;
+
+// 标记"把外部 value 同步进编辑器"的事务（切换笔记/外部文件时触发）。
+// 这类事务不是用户编辑，updateListener 据此跳过 onChange，避免新载入的笔记被误标脏
+// → 否则下一次切换会触发"保存"（外部文件会被无谓回写到磁盘、改 mtime）。
+const externalSync = Annotation.define<boolean>();
 
 export function LiveEditor({
   value,
@@ -101,7 +106,12 @@ export function LiveEditor({
           cmPlaceholder(placeholder ?? ""),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
-              onChangeRef.current(update.state.doc.toString());
+              // 外部 value 同步（切换笔记/文件）不算用户编辑，不上报 onChange（不标脏）；
+              // 真实键入、撤销/重做等不带此注解，照常上报。
+              const isExternalSync = update.transactions.some((tr) => tr.annotation(externalSync));
+              if (!isExternalSync) {
+                onChangeRef.current(update.state.doc.toString());
+              }
             }
           }),
         ],
@@ -127,6 +137,7 @@ export function LiveEditor({
     if (value === current) return;
     view.dispatch({
       changes: { from: 0, to: current.length, insert: value },
+      annotations: externalSync.of(true),
     });
   }, [value]);
 
