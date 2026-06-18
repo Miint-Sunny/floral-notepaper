@@ -5,7 +5,10 @@ use std::{thread, time::Duration};
 use tauri::{AppHandle, Emitter, Manager};
 
 const INITIAL_DELAY: Duration = Duration::from_secs(3);
-const POLL_INTERVAL: Duration = Duration::from_secs(60);
+// 动态休眠边界：距下次到期还远时最多睡 MAX_SLEEP（不再固定每 60s 空转读盘解析 settings）；
+// 临近到期时睡剩余时长，但至少 MIN_SLEEP，避免忙轮询。检查及时性仍在 MIN 粒度内（同原 60s）。
+const MIN_SLEEP: Duration = Duration::from_secs(60);
+const MAX_SLEEP: Duration = Duration::from_secs(15 * 60);
 
 pub fn start_auto_check_scheduler(app: AppHandle) {
     thread::spawn(move || {
@@ -21,9 +24,37 @@ pub fn start_auto_check_scheduler(app: AppHandle) {
                 }
             }
 
-            thread::sleep(POLL_INTERVAL);
+            thread::sleep(next_poll_delay(&app, Utc::now()));
         }
     });
+}
+
+// 距下次自动检查到期还要多久就睡多久。读不到 updater state / settings 时回退 MAX_SLEEP。
+fn next_poll_delay(app: &AppHandle, now: DateTime<Utc>) -> Duration {
+    let Some(state) = app.try_state::<UpdaterState>() else {
+        return MAX_SLEEP;
+    };
+    let Ok(settings) = settings::load(state.paths()) else {
+        return MAX_SLEEP;
+    };
+    sleep_until_due(&settings, now)
+}
+
+// 纯逻辑：按 settings 算到下次到期的休眠时长，clamp 到 [MIN_SLEEP, MAX_SLEEP]。
+// 关闭自动检查 → MAX；从未检查过 → MIN（尽快检查）；已逾期 → MIN；否则取剩余时长。
+fn sleep_until_due(settings: &settings::StoredUpdateSettings, now: DateTime<Utc>) -> Duration {
+    if !settings.auto_check {
+        return MAX_SLEEP;
+    }
+    let Some(last) = settings.last_auto_check_at else {
+        return MIN_SLEEP;
+    };
+    let interval = ChronoDuration::hours(i64::from(settings.check_interval_hours));
+    (last + interval)
+        .signed_duration_since(now)
+        .to_std()
+        .unwrap_or(MIN_SLEEP)
+        .clamp(MIN_SLEEP, MAX_SLEEP)
 }
 
 fn poll_auto_check(app: &AppHandle, now: DateTime<Utc>) -> Result<(), AppError> {
@@ -114,6 +145,62 @@ mod tests {
             },
         )
         .expect("save update settings");
+    }
+
+    fn make_settings(
+        auto_check: bool,
+        last_auto_check_at: Option<DateTime<Utc>>,
+        check_interval_hours: u32,
+    ) -> StoredUpdateSettings {
+        StoredUpdateSettings {
+            auto_check,
+            auto_download: false,
+            check_interval_hours,
+            check_source_preference: CheckSourcePreference::GithubFirst,
+            download_source_preference: DownloadSourcePreference::MirrorChyanFirst,
+            channel: UpdateChannel::Stable,
+            allow_prerelease: false,
+            last_auto_check_at,
+        }
+    }
+
+    #[test]
+    fn sleep_until_due_caps_far_future_at_max() {
+        // 刚检查过（剩 ~24h）→ 取上限 MAX_SLEEP，不每 60s 空转。
+        let settings = make_settings(true, Some(Utc::now()), 24);
+        assert_eq!(sleep_until_due(&settings, Utc::now()), MAX_SLEEP);
+    }
+
+    #[test]
+    fn sleep_until_due_floors_overdue_at_min() {
+        // 早已逾期（上次在 48h 前、间隔 24h）→ 尽快检查 = MIN_SLEEP。
+        let settings = make_settings(true, Some(Utc::now() - ChronoDuration::hours(48)), 24);
+        assert_eq!(sleep_until_due(&settings, Utc::now()), MIN_SLEEP);
+    }
+
+    #[test]
+    fn sleep_until_due_disabled_sleeps_max() {
+        assert_eq!(
+            sleep_until_due(&make_settings(false, None, 24), Utc::now()),
+            MAX_SLEEP
+        );
+    }
+
+    #[test]
+    fn sleep_until_due_never_checked_sleeps_min() {
+        assert_eq!(
+            sleep_until_due(&make_settings(true, None, 24), Utc::now()),
+            MIN_SLEEP
+        );
+    }
+
+    #[test]
+    fn sleep_until_due_returns_remaining_within_bounds() {
+        // 剩约 5 分钟（在 [MIN,MAX] 内）→ 返回剩余时长本身。
+        let last = Utc::now() - ChronoDuration::hours(24) + ChronoDuration::minutes(5);
+        let delay = sleep_until_due(&make_settings(true, Some(last), 24), Utc::now());
+        assert!(delay >= MIN_SLEEP && delay <= MAX_SLEEP);
+        assert!(delay.as_secs() >= 4 * 60 && delay.as_secs() <= 6 * 60);
     }
 
     #[test]
