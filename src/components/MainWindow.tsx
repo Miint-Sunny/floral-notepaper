@@ -2520,7 +2520,8 @@ export function MainWindow({
                 </div>
               )}
 
-              <div className="flex-1 overflow-y-auto px-2 pb-2">
+              {/* marginRight: 同大纲（OutlinePanel）——边栏列 overflow-hidden 会裁掉贴边滚动条的右描边，收窄 2px 让其完整退入列内。 */}
+              <div className="flex-1 overflow-y-auto px-2 pb-2" style={{ marginRight: 2 }}>
                 {/* 缩放放滚动容器内部这层（祖先缩放会让滚动条内缩）。只设 zoom、不动 width：
                     zoom 下 width:auto 正好填满，写 100/zoom% 反而把内容缩窄。 */}
                 <div

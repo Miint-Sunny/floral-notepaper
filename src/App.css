@@ -251,12 +251,12 @@ body {
 }
 :hover::-webkit-scrollbar-thumb,
 .is-scrolling::-webkit-scrollbar-thumb {
-  background-color: var(--color-bamboo-mist);
-  border-color: var(--color-bamboo);
+  background-color: color-mix(in srgb, var(--color-bamboo) 5%, transparent);
+  border-color: color-mix(in srgb, var(--color-bamboo) 33%, transparent);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-bamboo-mist);
-  border-color: var(--color-bamboo-light);
+  background-color: color-mix(in srgb, var(--color-bamboo) 45%, transparent);
+  border-color: color-mix(in srgb, var(--color-bamboo) 45%, transparent);
 }
 
 .scrollbar-hidden::-webkit-scrollbar {

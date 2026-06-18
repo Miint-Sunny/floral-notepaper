@@ -37,7 +37,9 @@ export function OutlinePanel({ items, activeSlug, onSelect, zoom = 1 }: OutlineP
           {t("main.outline.empty", { defaultValue: "暂无标题" })}
         </div>
       ) : (
-        <nav className="flex-1 overflow-y-auto py-2">
+        // marginRight: 大纲列是 overflow-hidden，滚动条贴右缘会被裁掉右侧描边（只剩一条、不成胶囊）；
+        // 收窄 2px 让整条滚动条退进列内、完整显示。边栏滚动容器同理（MainWindow）。
+        <nav className="flex-1 overflow-y-auto py-2" style={{ marginRight: 2 }}>
           <div style={zoomStyle}>
             {items.map((item) => {
               const active = activeSlug != null && item.slug === activeSlug;
