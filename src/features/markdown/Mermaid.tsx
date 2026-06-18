@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import mermaid from "mermaid";
 
-// Initialize mermaid
-mermaid.initialize({
-  startOnLoad: false,
-  theme: "default",
-  securityLevel: "loose",
-});
+// 延迟加载 mermaid 库：它是预览里最重的依赖，原先在模块顶层 import + initialize，使整个
+// （懒加载的）预览 chunk 一挂载就把 mermaid 拉进来、即便笔记里没有图表。改为只在真有
+// ```mermaid 块、组件挂载时才动态 import 其独立 chunk 并初始化一次（promise 缓存复用）。
+type MermaidApi = (typeof import("mermaid"))["default"];
+let mermaidPromise: Promise<MermaidApi> | null = null;
+function loadMermaid(): Promise<MermaidApi> {
+  if (!mermaidPromise) {
+    mermaidPromise = import("mermaid").then((m) => {
+      m.default.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
+      return m.default;
+    });
+  }
+  return mermaidPromise;
+}
 
 interface MermaidProps {
   chart: string;
@@ -21,6 +28,8 @@ export function Mermaid({ chart }: MermaidProps) {
     let active = true;
     const renderChart = async () => {
       try {
+        const mermaid = await loadMermaid();
+        if (!active) return;
         const { svg: renderedSvg } = await mermaid.render(containerId.current, chart.trim());
         if (active) {
           setSvg(renderedSvg);
