@@ -1239,12 +1239,17 @@ export function MainWindow({
       settleSaveState("saving");
       try {
         if (externalFile) {
-          await saveExternalFile(externalFile.filePath, contentSnapshot);
+          // 必须在写盘“之前”就打上时间戳：saveExternalFile 一旦落盘，磁盘 mtime 立刻变化，
+          // 而 mtime 轮询（外部改动检测）是独立的宏任务——若它在“已落盘但下面这行尚未执行”的
+          // 窗口里读到新 mtime，会把我们自己的写入误判成外部改动 → 回读整篇 → 即时模式光标被
+          // 重置（“切换外部文件后拖拽复制时光标乱跳”的根因）。写盘耗时后再刷新一次覆盖全程。
           lastExternalSaveRef.current = Date.now();
+          await saveExternalFile(externalFile.filePath, contentSnapshot);
           const mtime = await getFileModifiedTime(externalFile.filePath);
           if (stillCurrent()) {
             externalFileMtimeRef.current = mtime;
           }
+          lastExternalSaveRef.current = Date.now();
           settleSaveState(contentValueRef.current === contentSnapshot ? "saved" : "dirty");
         } else {
           const category = notesRef.current.find((note) => note.id === id)?.category ?? "";
@@ -3430,6 +3435,7 @@ export function MainWindow({
                         <LiveEditor
                           ref={liveEditorRef}
                           value={content}
+                          docKey={selectedId ?? undefined}
                           onChange={(next) => {
                             setContent(next);
                             markDirty();
