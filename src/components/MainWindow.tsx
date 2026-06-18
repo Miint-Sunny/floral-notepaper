@@ -1160,7 +1160,9 @@ export function MainWindow({
   useEffect(() => {
     if (!selectedExternalFile) return;
 
-    const interval = window.setInterval(async () => {
+    let interval = 0;
+
+    const check = async () => {
       if (Date.now() - lastExternalSaveRef.current < 2000) return;
       try {
         const mtime = await getFileModifiedTime(selectedExternalFile.filePath);
@@ -1177,9 +1179,38 @@ export function MainWindow({
       } catch {
         // file may have been deleted or become inaccessible
       }
-    }, 1000);
+    };
 
-    return () => window.clearInterval(interval);
+    const start = () => {
+      if (!interval) interval = window.setInterval(() => void check(), 1000);
+    };
+    const stop = () => {
+      if (interval) {
+        window.clearInterval(interval);
+        interval = 0;
+      }
+    };
+
+    // 窗口隐藏/最小化时停表：此时用户看不到，每秒一次 IPC+fs::metadata 唤醒主线程与 Rust 侧
+    // 是纯浪费（macOS 隐藏窗口 WebKit 暂停渲染但 JS 定时器仍触发）。重新可见时立即补检一次
+    // （防隐藏期间被外部改动漏检）再重启。只按 document.hidden 门控、不按 blur——失焦但仍可见
+    // 时保留轮询，以便在另一程序里编辑该文件、同时看本窗预览实时刷新。
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        void check();
+        start();
+      }
+    };
+
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [selectedExternalFile]);
 
   useEffect(() => {
