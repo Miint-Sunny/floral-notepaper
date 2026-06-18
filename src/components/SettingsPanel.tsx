@@ -72,11 +72,17 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
     ],
     [t],
   );
-  const highlightModes = useMemo<Array<{ value: "off" | "line" | "block"; label: string }>>(
+  const highlightModes = useMemo<
+    Array<{ value: "off" | "line" | "block" | "block-line"; label: string }>
+  >(
     () => [
       { value: "off", label: t("settings.activeHighlight.off", { defaultValue: "关" }) },
       { value: "line", label: t("settings.activeHighlight.line", { defaultValue: "行" }) },
       { value: "block", label: t("settings.activeHighlight.block", { defaultValue: "块" }) },
+      {
+        value: "block-line",
+        label: t("settings.activeHighlight.blockLine", { defaultValue: "块+行" }),
+      },
     ],
     [t],
   );

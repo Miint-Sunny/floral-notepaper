@@ -221,6 +221,7 @@
     "closeToTray": "Close to Tray",
     "activeHighlight": {
       "block": "Block",
+      "blockLine": "Block+Line",
       "label": "Highlight active line/block (Live)",
       "line": "Line",
       "off": "Off"
@@ -474,7 +475,7 @@
       "defaultView": "\"Live\" is this fork's single-pane WYSIWYG editor",
       "splitScrollSync": "Sync scrolling between editor and preview in split view",
       "renderHtmlMarkdown": "Render HTML tags embedded in Markdown (preview/live)",
-      "liveActiveHighlight": "Highlights the cursor's line or block in Live mode",
+      "liveActiveHighlight": "Highlights the cursor's line, block, or the current line within the block (Live)",
       "codeBlockLineNumbers": "Shows line numbers beside code blocks in Live mode",
       "editorLineNumbers": "Whole-document line-number gutter in Live mode",
       "outlineFollow": "Outline auto-highlights the current heading as you read/edit",

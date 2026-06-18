@@ -18,10 +18,14 @@ export interface LivePreviewOptions {
   showCodeLineNumbers?: boolean;
   /** Highlight the whole markdown block the cursor sits in. */
   activeBlock?: boolean;
+  /** Within the active block, give the cursor's own line a stronger tint ("block-line" mode). */
+  activeLineInBlock?: boolean;
 }
 
 const LIST_LEVEL_INDENT_EM = 1.5;
 const activeBlockLine = Decoration.line({ class: "cm-md-active-block" });
+// 块内当前行的更强高光（“块+行”模式）。CSS 定义晚于 active-block，同类同优先级时胜出。
+const activeBlockCurrentLine = Decoration.line({ class: "cm-md-active-block-line" });
 // Block-level nodes whose extent defines "the current block" for highlighting.
 const BLOCK_NAMES = new Set([
   "Paragraph",
@@ -94,16 +98,21 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
     decorations.push(hideMark.range(from, end));
   };
 
-  // Highlight every line of the block the cursor currently sits in.
+  // Highlight every line of the block the cursor currently sits in. In "block-line"
+  // mode also give the cursor's own line a stronger tint inside that block.
   if (options.activeBlock) {
     const pos = state.selection.main.head;
+    const cursorLine = doc.lineAt(pos).number;
     let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 0);
     while (node && !BLOCK_NAMES.has(node.name)) node = node.parent;
-    if (node) {
-      const startLine = doc.lineAt(node.from).number;
-      const endLine = doc.lineAt(Math.min(node.to, doc.length)).number;
-      for (let l = startLine; l <= endLine; l++) {
-        decorations.push(activeBlockLine.range(doc.line(l).from));
+    // 空行 / 段落间隙没有块级祖先（resolveInner 落到 Document）→ 退而高亮光标当前行，
+    // 保证当前行始终被“覆盖”（修“单行不显示高光”）。
+    const startLine = node ? doc.lineAt(node.from).number : cursorLine;
+    const endLine = node ? doc.lineAt(Math.min(node.to, doc.length)).number : cursorLine;
+    for (let l = startLine; l <= endLine; l++) {
+      decorations.push(activeBlockLine.range(doc.line(l).from));
+      if (options.activeLineInBlock && l === cursorLine) {
+        decorations.push(activeBlockCurrentLine.range(doc.line(l).from));
       }
     }
   }

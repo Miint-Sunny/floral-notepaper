@@ -30,7 +30,7 @@ export interface AppConfig {
   splitScrollSync: boolean;
   codeBlockLineNumbers: boolean;
   editorLineNumbers: boolean;
-  liveActiveHighlight: "off" | "line" | "block";
+  liveActiveHighlight: "off" | "line" | "block" | "block-line";
   outlineFollow: boolean;
   sidebarCollapsed: boolean;
   sidebarWidth: number;

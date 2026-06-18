@@ -55,6 +55,11 @@ export function liveEditorTheme(fontSize: number) {
     ".cm-activeLine, .cm-md-active-block": {
       backgroundColor: "color-mix(in srgb, var(--color-bamboo) 8%, transparent)",
     },
+    // “块+行”模式下块内当前行：比块底色(8%)略强但仍克制，避免遮蔽文字。
+    // 定义晚于 .cm-md-active-block，同优先级时此规则胜出。
+    ".cm-md-active-block-line": {
+      backgroundColor: "color-mix(in srgb, var(--color-bamboo) 15%, transparent)",
+    },
 
     // --- Markdown live-preview element styling ---
     ".cm-md-h1": {

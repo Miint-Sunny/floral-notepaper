@@ -273,7 +273,8 @@
       "label": "ライブモードで現在の行/ブロックをハイライト",
       "off": "オフ",
       "line": "行",
-      "block": "ブロック"
+      "block": "ブロック",
+      "blockLine": "ブロック+行"
     },
     "outlineFollow": "アウトラインがカーソル/スクロールに追従",
     "codeBlockLineNumbers": "ライブモードのコードブロック行番号",
@@ -301,7 +302,7 @@
       "defaultView": "「ライブ」は本フォーク追加の単一ペイン WYSIWYG 編集",
       "splitScrollSync": "分割表示でエディターとプレビューのスクロールを同期",
       "renderHtmlMarkdown": "プレビュー/ライブで Markdown 内の HTML タグを描画",
-      "liveActiveHighlight": "ライブモードでカーソル行またはブロックを強調",
+      "liveActiveHighlight": "ライブモードでカーソル行・ブロック、またはブロック内の現在行を強調",
       "codeBlockLineNumbers": "ライブモードでコードブロックに行番号を表示",
       "editorLineNumbers": "ライブモードで文書全体に行番号ガターを表示",
       "outlineFollow": "閲覧/編集中にアウトラインが現在の見出しを自動強調",

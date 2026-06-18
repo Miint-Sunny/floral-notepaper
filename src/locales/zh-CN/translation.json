@@ -221,6 +221,7 @@
     "closeToTray": "关闭到托盘",
     "activeHighlight": {
       "block": "块",
+      "blockLine": "块+行",
       "label": "即时模式高光当前行/块",
       "line": "行",
       "off": "关"
@@ -474,7 +475,7 @@
       "defaultView": "「即时」为本分支新增的单栏所见即所得编辑",
       "splitScrollSync": "分栏视图左右编辑/预览同步滚动",
       "renderHtmlMarkdown": "预览/即时中渲染 Markdown 内嵌的 HTML 标签",
-      "liveActiveHighlight": "即时模式下高亮光标所在行或整块",
+      "liveActiveHighlight": "即时模式下高亮光标所在行、整块，或块内再标出当前行",
       "codeBlockLineNumbers": "即时模式下代码块左侧显示行号",
       "editorLineNumbers": "即时模式下整篇文档左侧的行号栏",
       "outlineFollow": "阅读/编辑时大纲自动高亮当前所在标题",
