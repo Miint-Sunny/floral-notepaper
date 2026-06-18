@@ -200,7 +200,14 @@ function loadKatex(): Promise<{ remarkMath: unknown; rehypeKatex: unknown }> {
       import("remark-math"),
       import("rehype-katex"),
       import("katex/dist/katex.min.css"),
-    ]).then(([rm, rk]) => ({ remarkMath: rm.default, rehypeKatex: rk.default }));
+    ])
+      .then(([rm, rk]) => ({ remarkMath: rm.default, rehypeKatex: rk.default }))
+      .catch((error) => {
+        // 失败不把 rejected promise 钉死缓存（否则整会话所有公式都拿到这个坏 promise、
+        // 永不再加载）。清空缓存让下次含公式的笔记可重试。典型触发：自更新后旧 chunk hash 失效。
+        katexPromise = null;
+        throw error;
+      });
   }
   return katexPromise;
 }
@@ -437,9 +444,14 @@ function MarkdownPreviewImpl({
   useEffect(() => {
     if (!hasMath || katexPlugins) return;
     let active = true;
-    void loadKatex().then((loaded) => {
-      if (active) setKatexPlugins(loaded);
-    });
+    void loadKatex()
+      .then((loaded) => {
+        if (active) setKatexPlugins(loaded);
+      })
+      .catch((error) => {
+        // 优雅降级：加载失败则公式保持原始文本，并兜底 rejection（全 app 无 onunhandledrejection）。
+        console.error("katex load failed; formulas will render as raw text", error);
+      });
     return () => {
       active = false;
     };

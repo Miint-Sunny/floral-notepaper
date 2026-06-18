@@ -7,10 +7,17 @@ type MermaidApi = (typeof import("mermaid"))["default"];
 let mermaidPromise: Promise<MermaidApi> | null = null;
 function loadMermaid(): Promise<MermaidApi> {
   if (!mermaidPromise) {
-    mermaidPromise = import("mermaid").then((m) => {
-      m.default.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
-      return m.default;
-    });
+    mermaidPromise = import("mermaid")
+      .then((m) => {
+        m.default.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
+        return m.default;
+      })
+      .catch((error) => {
+        // 失败不钉死缓存（rejected promise 会让之后的图表也拿到坏 promise）；清空让后续重试。
+        // renderChart 的 try/catch 会落错误 UI + console.error，rejection 不会逸散。
+        mermaidPromise = null;
+        throw error;
+      });
   }
   return mermaidPromise;
 }
