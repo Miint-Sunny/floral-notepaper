@@ -2080,8 +2080,20 @@ export function MainWindow({
 
     if (observedElements.length === 0) return;
 
-    const observer = new ResizeObserver(() => {
-      scheduleScrollMeasurement(120);
+    // 只有宽度变化才影响软换行 → 块偏移（measureBlockOffsets 的镜像是 height:auto，高度无关）。
+    // 纯高度变化（竖向窗口缩放、状态栏/标题文案行数变化等）不必为整篇内容重建隐藏 DOM 镜像逐块
+    // reflow 测 offsetTop。用上次宽度门控（取整避免亚像素抖动；首次 prev===undefined 仍触发一次初测）。
+    const lastWidths = new Map<Element, number>();
+    const observer = new ResizeObserver((entries) => {
+      let widthChanged = false;
+      for (const entry of entries) {
+        const width = Math.round(entry.contentRect.width);
+        if (lastWidths.get(entry.target) !== width) {
+          lastWidths.set(entry.target, width);
+          widthChanged = true;
+        }
+      }
+      if (widthChanged) scheduleScrollMeasurement(120);
     });
     observedElements.forEach((element) => observer.observe(element));
 
