@@ -18,10 +18,14 @@ export function buildPreview(content: string): string {
   return content.split(/\s+/).filter(Boolean).join(" ").slice(0, 80);
 }
 
+// 预编译，避免逐字符循环里反复构造同一个正则字面量。
+const WHITESPACE_RE = /\s/;
+
 export function countNoteChars(content: string): number {
   let count = 0;
+  // 逐码点遍历（for...of）：emoji/astral 字符按 1 个字符计。勿改成 replace(/\s/g,"").length（会退化成 UTF-16 码元计数）。
   for (const ch of content) {
-    if (!/\s/.test(ch)) count++;
+    if (!WHITESPACE_RE.test(ch)) count++;
   }
   return count;
 }

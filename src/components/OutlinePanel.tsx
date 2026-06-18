@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { OutlineItem } from "../features/markdown/outline";
 
@@ -11,7 +11,7 @@ interface OutlinePanelProps {
   zoom?: number;
 }
 
-export function OutlinePanel({ items, activeSlug, onSelect, zoom = 1 }: OutlinePanelProps) {
+function OutlinePanelImpl({ items, activeSlug, onSelect, zoom = 1 }: OutlinePanelProps) {
   const { t } = useTranslation();
   const activeRef = useRef<HTMLButtonElement>(null);
   // 缩放放在滚动容器 <nav> 内部的这一层（不是 <nav> 的祖先——否则 WebKit 下原生滚动条会内缩）。
@@ -67,3 +67,7 @@ export function OutlinePanel({ items, activeSlug, onSelect, zoom = 1 }: OutlineP
     </div>
   );
 }
+
+// memo：items 在大纲关闭时是稳定空数组、onSelect 已 useCallback、其余为基本类型，
+// 浅比较使“关闭大纲时按键”或与大纲无关的状态变更不再重渲整列。
+export const OutlinePanel = memo(OutlinePanelImpl);

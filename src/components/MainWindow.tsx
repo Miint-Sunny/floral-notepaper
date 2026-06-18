@@ -115,6 +115,12 @@ const LiveEditor = lazy(() =>
   import("../features/markdown/LiveEditor").then((m) => ({ default: m.LiveEditor })),
 );
 
+// 大纲关闭时 outlineItems 返回这个稳定空数组：省掉每次按键的 parseOutline，且让 memo 化的
+// OutlinePanel 不因新数组引用而重渲。
+const EMPTY_OUTLINE: OutlineItem[] = [];
+// 单例编码器，避免每次按键算字节数时 new TextEncoder() 的无谓分配。
+const TEXT_ENCODER = new TextEncoder();
+
 /** Width of the Outline column when expanded (px). */
 const OUTLINE_WIDTH = 220;
 const SIDE_PANEL_WIDTH = 360;
@@ -642,11 +648,15 @@ export function MainWindow({
 
   const lineCount = useMemo(() => content.split("\n").length, [content]);
   const byteSize = useMemo(
-    () => (new TextEncoder().encode(content).length / 1024).toFixed(1),
+    () => (TEXT_ENCODER.encode(content).length / 1024).toFixed(1),
     [content],
   );
   const charCount = useMemo(() => countNoteChars(content), [content]);
-  const outlineItems = useMemo(() => parseOutline(content), [content]);
+  // 大纲关闭时不解析（关闭时 onCursorLine/effect 都被 outlineTracking 门控、不读 outlineItems）。
+  const outlineItems = useMemo(
+    () => (outlineVisible ? parseOutline(content) : EMPTY_OUTLINE),
+    [content, outlineVisible],
+  );
   const outlineFollow = settingsConfig?.outlineFollow ?? true;
   // Scroll-spy is active only when the panel is open and "follow" is enabled.
   const outlineTracking = outlineVisible && outlineFollow;
