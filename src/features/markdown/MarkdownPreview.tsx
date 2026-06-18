@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { memo, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -361,7 +361,7 @@ const staticComponents: Components = {
   ),
 };
 
-export function MarkdownPreview({
+function MarkdownPreviewImpl({
   content,
   fontSize = 14,
   renderHtml = false,
@@ -436,3 +436,7 @@ export function MarkdownPreview({
     </div>
   );
 }
+
+// memo：props 全是基本类型/稳定引用（content/fontSize/renderHtml/codeWrap/imageBaseDir），
+// 浅比较干净命中——隔离与内容无关的高频状态变更（拖分栏手柄、列表悬停、保存态）触发的整树重渲染。
+export const MarkdownPreview = memo(MarkdownPreviewImpl);

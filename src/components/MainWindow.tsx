@@ -1,4 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ChangeEvent, MouseEvent } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -372,6 +381,9 @@ export function MainWindow({
   const [outlineVisible, setOutlineVisible] = useState(initialConfig?.outlineVisible ?? false);
   const [activeOutlineSlug, setActiveOutlineSlug] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  // 预览解析延后到空闲：连续打字时 react-markdown(remark→rehype→katex) 不再每键同步全文重跑，
+  // 输入不被阻塞（split 是默认视图，含 KaTeX 的大文档尤其明显）。textarea/即时编辑器仍绑 fresh content。
+  const deferredContent = useDeferredValue(content);
   const [title, setTitle] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -3462,7 +3474,7 @@ export function MainWindow({
                       >
                         <Suspense fallback={null}>
                           <MarkdownPreview
-                            content={content}
+                            content={deferredContent}
                             fontSize={settingsConfig?.fontSize ?? 14}
                             renderHtml={settingsConfig?.renderHtmlMarkdown ?? false}
                             codeWrap={settingsConfig?.codeWrap ?? true}
