@@ -273,6 +273,7 @@
     "tileRenderMarkdown": "磁貼渲染 Markdown",
     "renderHtmlMarkdown": "允許 HTML 標籤渲染",
     "splitScrollSync": "分欄同步捲動",
+    "outlineFollow": "大綱跟隨游標/捲動",
     "title": "應用程式設定",
     "update": {
       "advanced": "進階",

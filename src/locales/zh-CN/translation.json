@@ -273,6 +273,7 @@
     "tileRenderMarkdown": "磁贴渲染 Markdown",
     "renderHtmlMarkdown": "允许 HTML 标签渲染",
     "splitScrollSync": "分栏同步滚动",
+    "outlineFollow": "大纲跟随光标/滚动",
     "title": "应用设置",
     "update": {
       "advanced": "高级",

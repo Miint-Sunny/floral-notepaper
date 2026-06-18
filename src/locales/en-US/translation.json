@@ -273,6 +273,7 @@
     "tileRenderMarkdown": "Render Markdown on tile",
     "renderHtmlMarkdown": "Render HTML tags in Markdown",
     "splitScrollSync": "Split view scroll sync",
+    "outlineFollow": "Outline follows cursor/scroll",
     "title": "Settings",
     "update": {
       "advanced": "Advanced",
