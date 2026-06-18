@@ -2402,7 +2402,13 @@ export function MainWindow({
 
         <div className="relative z-10 flex flex-1 min-h-0">
           <div
-            className="border-r border-paper-deep/30 bg-paper/40 shrink-0 overflow-hidden transition-[width] duration-[600ms]"
+            className={`border-r border-paper-deep/30 bg-paper/40 shrink-0 overflow-hidden ${
+              // 与大纲栏统一：开合 600ms + 全局签名缓动；拖拽改宽时禁用过渡（否则宽度动画
+              // 跟在光标后 600ms = 拖拽迟滞），与大纲的 isResizingOutline 守卫对齐。
+              isResizingSidebar
+                ? ""
+                : "transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+            }`}
             style={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
           >
             {/* zoom 不放这层（祖先缩放会让笔记列表滚动条内缩）；改由列表滚动容器内部缩放，见下方 space-y。 */}
@@ -2991,7 +2997,10 @@ export function MainWindow({
           <div
             ref={outlineColRef}
             className={`border-r border-paper-deep/30 bg-paper/30 shrink-0 overflow-hidden ${
-              isResizingOutline ? "" : "transition-[width] duration-300"
+              // 开合动画跟进边栏：同 600ms + 同签名缓动（原为 300ms 无缓动，比边栏快一倍、显得突兀）。
+              isResizingOutline
+                ? ""
+                : "transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
             }`}
             style={{ width: outlineVisible ? outlineWidth : 0 }}
           >
