@@ -51,6 +51,8 @@ describe("settings api", () => {
       renderHtmlMarkdown: false,
       splitScrollSync: true,
       outlineFollow: true,
+      outlineVisible: false,
+      outlineWidth: 240,
       openAtCursor: true,
     };
     mockedInvoke.mockResolvedValue(config);
@@ -84,6 +86,8 @@ describe("settings api", () => {
       renderHtmlMarkdown: false,
       splitScrollSync: true,
       outlineFollow: true,
+      outlineVisible: false,
+      outlineWidth: 240,
       openAtCursor: true,
     };
     mockedInvoke.mockResolvedValue(config);

@@ -349,8 +349,15 @@ export function MainWindow({
     normalizeViewMode(initialConfig?.defaultViewMode ?? "split"),
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [outlineVisible, setOutlineVisible] = useState(false);
+  const [outlineVisible, setOutlineVisible] = useState(initialConfig?.outlineVisible ?? false);
+  const [outlineWidth, setOutlineWidth] = useState(initialConfig?.outlineWidth ?? OUTLINE_WIDTH);
+  const [isResizingOutline, setIsResizingOutline] = useState(false);
   const [activeOutlineSlug, setActiveOutlineSlug] = useState<string | null>(null);
+  // 实时镜像最新宽度，供拖拽结束(mouseup)时持久化读取（effect 闭包拿不到最新 state）。
+  const outlineWidthRef = useRef(outlineWidth);
+  outlineWidthRef.current = outlineWidth;
+  const outlineColRef = useRef<HTMLDivElement>(null);
+  const outlineResizeStartLeft = useRef(0);
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -631,6 +638,43 @@ export function MainWindow({
     setActiveOutlineSlug(activeHeadingByLine(outlineItems, line));
   }, [viewMode, outlineItems, outlineTracking, content]);
 
+  // 静默持久化大纲 UI 状态（开合 / 宽度），防抖 400ms 写配置文件。
+  const uiSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistUiState = useCallback((patch: Partial<AppConfig>) => {
+    setSettingsConfig((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      if (uiSaveTimer.current) clearTimeout(uiSaveTimer.current);
+      uiSaveTimer.current = setTimeout(() => {
+        void saveConfig(next).catch(() => {});
+      }, 400);
+      return next;
+    });
+  }, []);
+
+  // 大纲栏拖拽改宽。宽度 = 鼠标 X − 大纲列左边缘（拖拽开始时实测、过程中不变），钳制 140–420px。
+  useEffect(() => {
+    if (!isResizingOutline) return;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    const onMouseMove = (e: globalThis.MouseEvent) => {
+      const width = Math.min(Math.max(e.clientX - outlineResizeStartLeft.current, 140), 420);
+      setOutlineWidth(width);
+    };
+    const onMouseUp = () => {
+      setIsResizingOutline(false);
+      persistUiState({ outlineWidth: Math.round(outlineWidthRef.current) });
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+  }, [isResizingOutline, persistUiState]);
+
   const applyNote = useCallback(
     (note: Note) => {
       // 立刻同步各 ref，保证保存快照与守卫在下一次渲染前就能读到最新值
@@ -754,6 +798,8 @@ export function MainWindow({
         ]);
         if (cancelled) return;
         setSettingsConfig(loadedConfig);
+        setOutlineVisible(loadedConfig.outlineVisible ?? false);
+        setOutlineWidth(loadedConfig.outlineWidth ?? OUTLINE_WIDTH);
         setSavedDataDir(loadedConfig.dataDir);
         setViewMode(normalizeViewMode(loadedConfig.defaultViewMode));
         setNotes(loadedNotes);
@@ -2699,10 +2745,13 @@ export function MainWindow({
           {/* Outline column. The inner div keeps a fixed width so its content
               doesn't reflow while the outer width animates on collapse. */}
           <div
-            className="border-r border-paper-deep/30 bg-paper/30 shrink-0 overflow-hidden transition-[width] duration-300"
-            style={{ width: outlineVisible ? OUTLINE_WIDTH : 0 }}
+            ref={outlineColRef}
+            className={`border-r border-paper-deep/30 bg-paper/30 shrink-0 overflow-hidden ${
+              isResizingOutline ? "" : "transition-[width] duration-300"
+            }`}
+            style={{ width: outlineVisible ? outlineWidth : 0 }}
           >
-            <div className="h-full" style={{ width: OUTLINE_WIDTH }}>
+            <div className="h-full" style={{ width: outlineWidth }}>
               <OutlinePanel
                 items={outlineItems}
                 activeSlug={outlineTracking ? activeOutlineSlug : null}
@@ -2710,6 +2759,23 @@ export function MainWindow({
               />
             </div>
           </div>
+
+          {/* 大纲列宽拖拽手柄（仅大纲展开时显示）。 */}
+          {outlineVisible && (
+            <div
+              className={`w-1 shrink-0 cursor-col-resize group relative ${isResizingOutline ? "bg-bamboo/30" : "hover:bg-bamboo/20"} transition-colors`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                outlineResizeStartLeft.current =
+                  outlineColRef.current?.getBoundingClientRect().left ?? 0;
+                setIsResizingOutline(true);
+              }}
+            >
+              <div
+                className={`absolute inset-y-0 -left-1 -right-1 ${isResizingOutline ? "" : "group-hover:bg-bamboo/5"}`}
+              />
+            </div>
+          )}
 
           <div className="flex-1 flex flex-col min-w-0">
             <div className="flex items-center justify-between px-4 h-10 border-b border-paper-deep/20 shrink-0 bg-paper/20">
@@ -2739,7 +2805,11 @@ export function MainWindow({
                 </button>
 
                 <button
-                  onClick={() => setOutlineVisible((value) => !value)}
+                  onClick={() => {
+                    const next = !outlineVisible;
+                    setOutlineVisible(next);
+                    persistUiState({ outlineVisible: next });
+                  }}
                   aria-pressed={outlineVisible}
                   aria-label={t("main.outline.title", { defaultValue: "大纲" })}
                   className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all cursor-pointer ${

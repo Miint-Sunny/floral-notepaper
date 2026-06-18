@@ -27,6 +27,8 @@ export interface AppConfig {
   renderHtmlMarkdown: boolean;
   splitScrollSync: boolean;
   outlineFollow: boolean;
+  outlineVisible: boolean;
+  outlineWidth: number;
   surfaceWidth?: number;
   surfaceHeight?: number;
   toggleVisibilityShortcut: string;

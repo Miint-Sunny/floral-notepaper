@@ -78,6 +78,10 @@ pub struct AppConfig {
     pub split_scroll_sync: bool,
     #[serde(default = "default_outline_follow")]
     pub outline_follow: bool,
+    #[serde(default)]
+    pub outline_visible: bool,
+    #[serde(default = "default_outline_width")]
+    pub outline_width: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface_width: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1076,6 +1080,8 @@ impl NoteStore {
             render_html_markdown: false,
             split_scroll_sync: true,
             outline_follow: true,
+            outline_visible: false,
+            outline_width: 240,
             surface_width: None,
             surface_height: None,
             toggle_visibility_shortcut: default_toggle_visibility_shortcut(),
@@ -1652,6 +1658,10 @@ fn default_outline_follow() -> bool {
     true
 }
 
+fn default_outline_width() -> u32 {
+    240
+}
+
 fn default_toggle_visibility_shortcut() -> String {
     String::new()
 }
@@ -1824,6 +1834,8 @@ mod tests {
             render_html_markdown: false,
             split_scroll_sync: true,
             outline_follow: true,
+            outline_visible: false,
+            outline_width: 240,
             surface_width: None,
             surface_height: None,
             toggle_visibility_shortcut: String::new(),
