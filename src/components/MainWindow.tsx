@@ -454,6 +454,9 @@ export function MainWindow({
   const blockOffsets = useRef<number[]>([]);
   const scrollSource = useRef<"editor" | "preview" | null>(null);
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 滚动同步的重活（getBoundingClientRect + 写 scrollTop）合并到一帧一次，避免一次滚动里
+  // 多个事件各做一遍强制重排。锁(scrollSource/scrollTimer)仍每个事件同步更新。
+  const scrollSyncRaf = useRef(0);
   const measureDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const measureRafRef = useRef<number>(0);
   const measureControllerRef = useRef<AbortController | null>(null);
@@ -2140,95 +2143,117 @@ export function MainWindow({
 
   // 块内按比例插值的滚动同步：编辑器与预览的每个块各占一段纵向区间且一一对应；
   // 在当前块内用相同比例换算另一侧的位置 → 不再“块首对齐、块内不动、跨块猛跳”，连续平滑。
-  const handleEditorScroll = useCallback(() => {
-    if (viewMode !== "split") return;
-    if (scrollSource.current === "preview") return;
-
-    const textarea = contentRef.current;
-    const preview = previewScrollRef.current;
-    if (!textarea || !preview) return;
-
-    scrollSource.current = "editor";
+  // 同步锁：每个 scroll 事件都即时更新 scrollSource + 150ms 解锁计时器（防反向回弹环）。
+  const lockScrollSource = useCallback((source: "editor" | "preview") => {
+    scrollSource.current = source;
     if (scrollTimer.current) clearTimeout(scrollTimer.current);
     scrollTimer.current = setTimeout(() => {
       scrollSource.current = null;
     }, 150);
+  }, []);
 
-    const offsets = blockOffsets.current;
-    if (offsets.length === 0) return;
+  // 把同步函数 fn 合并到下一帧执行（一帧内多个 scroll 事件只跑一次重活）。
+  const scheduleScrollSync = useCallback((fn: () => void) => {
+    if (scrollSyncRaf.current) return;
+    scrollSyncRaf.current = requestAnimationFrame(() => {
+      scrollSyncRaf.current = 0;
+      fn();
+    });
+  }, []);
 
-    const scrollTop = textarea.scrollTop;
-    const i = blockIndexAtOffset(offsets, scrollTop);
-    const elI = preview.querySelector<HTMLElement>(`[data-block-index="${i}"]`);
-    if (!elI) return;
+  const handleEditorScroll = useCallback(() => {
+    if (viewMode !== "split") return;
+    if (scrollSource.current === "preview") return;
+    if (!contentRef.current || !previewScrollRef.current) return;
 
-    // 当前块在编辑器中的纵向区间 → 滚动落在块内的比例（最后一块用可滚动到底兜底）
-    const editorStart = offsets[i];
-    const editorEnd =
-      i + 1 < offsets.length ? offsets[i + 1] : textarea.scrollHeight - textarea.clientHeight;
-    const frac =
-      editorEnd > editorStart
-        ? Math.min(1, Math.max(0, (scrollTop - editorStart) / (editorEnd - editorStart)))
-        : 0;
+    lockScrollSource("editor");
+    scheduleScrollSync(() => {
+      const textarea = contentRef.current;
+      const preview = previewScrollRef.current;
+      if (!textarea || !preview) return;
 
-    // 同样的比例套到预览里对应块的区间上
-    const containerTop = preview.getBoundingClientRect().top;
-    const topOf = (el: HTMLElement) =>
-      el.getBoundingClientRect().top - containerTop + preview.scrollTop;
-    const pStart = topOf(elI);
-    const elNext = preview.querySelector<HTMLElement>(`[data-block-index="${i + 1}"]`);
-    const pEnd = elNext ? topOf(elNext) : preview.scrollHeight - preview.clientHeight;
+      const offsets = blockOffsets.current;
+      if (offsets.length === 0) return;
 
-    preview.scrollTop = pStart + frac * (pEnd - pStart);
-  }, [viewMode]);
+      const scrollTop = textarea.scrollTop;
+      const i = blockIndexAtOffset(offsets, scrollTop);
+      const elI = preview.querySelector<HTMLElement>(`[data-block-index="${i}"]`);
+      if (!elI) return;
+
+      // 当前块在编辑器中的纵向区间 → 滚动落在块内的比例（最后一块用可滚动到底兜底）
+      const editorStart = offsets[i];
+      const editorEnd =
+        i + 1 < offsets.length ? offsets[i + 1] : textarea.scrollHeight - textarea.clientHeight;
+      const frac =
+        editorEnd > editorStart
+          ? Math.min(1, Math.max(0, (scrollTop - editorStart) / (editorEnd - editorStart)))
+          : 0;
+
+      // 同样的比例套到预览里对应块的区间上
+      const containerTop = preview.getBoundingClientRect().top;
+      const topOf = (el: HTMLElement) =>
+        el.getBoundingClientRect().top - containerTop + preview.scrollTop;
+      const pStart = topOf(elI);
+      const elNext = preview.querySelector<HTMLElement>(`[data-block-index="${i + 1}"]`);
+      const pEnd = elNext ? topOf(elNext) : preview.scrollHeight - preview.clientHeight;
+
+      preview.scrollTop = pStart + frac * (pEnd - pStart);
+    });
+  }, [viewMode, lockScrollSource, scheduleScrollSync]);
 
   const handlePreviewScroll = useCallback(() => {
     if (viewMode !== "split") return;
     if (scrollSource.current === "editor") return;
+    if (!contentRef.current || !previewScrollRef.current) return;
 
-    const textarea = contentRef.current;
-    const preview = previewScrollRef.current;
-    if (!textarea || !preview) return;
+    lockScrollSource("preview");
+    scheduleScrollSync(() => {
+      const textarea = contentRef.current;
+      const preview = previewScrollRef.current;
+      if (!textarea || !preview) return;
 
-    scrollSource.current = "preview";
-    if (scrollTimer.current) clearTimeout(scrollTimer.current);
-    scrollTimer.current = setTimeout(() => {
-      scrollSource.current = null;
-    }, 150);
+      const offsets = blockOffsets.current;
+      const elements = preview.querySelectorAll<HTMLElement>("[data-block-index]");
+      if (offsets.length === 0 || elements.length === 0) return;
 
-    const offsets = blockOffsets.current;
-    const elements = preview.querySelectorAll<HTMLElement>("[data-block-index]");
-    if (offsets.length === 0 || elements.length === 0) return;
+      const previewTop = preview.scrollTop;
+      const containerTop = preview.getBoundingClientRect().top;
+      const topOf = (el: HTMLElement) => el.getBoundingClientRect().top - containerTop + previewTop;
 
-    const previewTop = preview.scrollTop;
-    const containerTop = preview.getBoundingClientRect().top;
-    const topOf = (el: HTMLElement) => el.getBoundingClientRect().top - containerTop + previewTop;
-
-    // 预览中位于视口顶的块 = 最后一个 top <= previewTop 的块（elements 按块序排列，可提前 break）
-    let i = 0;
-    let pStart = 0;
-    for (const el of elements) {
-      const top = topOf(el);
-      if (top <= previewTop + 1) {
-        i = parseInt(el.getAttribute("data-block-index")!, 10);
-        pStart = top;
-      } else {
-        break;
+      // 预览中位于视口顶的块 = 最后一个 top <= previewTop 的块（elements 按块序排列，可提前 break）
+      let i = 0;
+      let pStart = 0;
+      for (const el of elements) {
+        const top = topOf(el);
+        if (top <= previewTop + 1) {
+          i = parseInt(el.getAttribute("data-block-index")!, 10);
+          pStart = top;
+        } else {
+          break;
+        }
       }
-    }
-    if (i >= offsets.length) return;
+      if (i >= offsets.length) return;
 
-    // 该块在预览中的区间 → 比例 → 映射回编辑器同一块的区间
-    const elNext = preview.querySelector<HTMLElement>(`[data-block-index="${i + 1}"]`);
-    const pEnd = elNext ? topOf(elNext) : preview.scrollHeight - preview.clientHeight;
-    const frac =
-      pEnd > pStart ? Math.min(1, Math.max(0, (previewTop - pStart) / (pEnd - pStart))) : 0;
+      // 该块在预览中的区间 → 比例 → 映射回编辑器同一块的区间
+      const elNext = preview.querySelector<HTMLElement>(`[data-block-index="${i + 1}"]`);
+      const pEnd = elNext ? topOf(elNext) : preview.scrollHeight - preview.clientHeight;
+      const frac =
+        pEnd > pStart ? Math.min(1, Math.max(0, (previewTop - pStart) / (pEnd - pStart))) : 0;
 
-    const editorStart = offsets[i];
-    const editorEnd =
-      i + 1 < offsets.length ? offsets[i + 1] : textarea.scrollHeight - textarea.clientHeight;
-    textarea.scrollTop = editorStart + frac * (editorEnd - editorStart);
-  }, [viewMode]);
+      const editorStart = offsets[i];
+      const editorEnd =
+        i + 1 < offsets.length ? offsets[i + 1] : textarea.scrollHeight - textarea.clientHeight;
+      textarea.scrollTop = editorStart + frac * (editorEnd - editorStart);
+    });
+  }, [viewMode, lockScrollSource, scheduleScrollSync]);
+
+  // 卸载时取消挂起的滚动同步 rAF / 解锁计时器。
+  useEffect(() => {
+    return () => {
+      if (scrollSyncRaf.current) cancelAnimationFrame(scrollSyncRaf.current);
+      if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    };
+  }, []);
 
   const handlePinEntry = async () => {
     if (!selectedId) return;
