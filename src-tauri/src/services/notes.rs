@@ -660,13 +660,19 @@ impl NoteStore {
             return Ok(config);
         }
 
-        let mut config: AppConfig = serde_json::from_str(&fs::read_to_string(&path)?)?;
+        let parsed: AppConfig = serde_json::from_str(&fs::read_to_string(&path)?)?;
+        let mut config = parsed.clone();
         // config 中记录的 dataDir 是上次运行时数据所在位置；若本次 resolve 出的
         // self.data_dir 与之不同（如 FLORAL_NOTEPAPER_DATA_DIR 被改），尝试搬运旧数据
         self.migrate_data_dir_if_relocated(&mut config);
         config.data_dir = Some(self.data_dir.to_string_lossy().to_string());
         config.tab_indent_size = config.tab_indent_size.clamp(1, 8);
-        write_json_atomic(&path, &config)?;
+        // 仅当归一化（dataDir 解析 / clamp / 数据搬运）真的改了内容时才回写。load_config 被
+        // config_get / 菜单·托盘刷新 / locale 初始化等高频调用，原先每次都无条件写盘+双 fsync
+        // 是纯浪费（dataDir 变更/relocate 仍会使 config != parsed，照常持久化，不影响正确性）。
+        if config != parsed {
+            write_json_atomic(&path, &config)?;
+        }
         fs::create_dir_all(self.data_dir.join("notes"))?;
         if self.migrate_macos_shortcut_default(&mut config)? {
             write_json_atomic(&path, &config)?;
