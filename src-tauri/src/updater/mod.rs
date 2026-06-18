@@ -211,7 +211,13 @@ impl UpdaterState {
             state::recover_with_current_version(&self.paths, &self.current_version)?;
         download::cleanup_partial_downloads(&self.paths)?;
         cleanup_update_artifacts(&self.paths, &recovered_state)?;
-        helper::cleanup_stale_macos_mounts(&self.paths);
+        // macOS 残留 dmg 挂载点清理在有残留时会同步 spawn `hdiutil detach` 并阻塞等子进程；它只
+        // 处理上一次运行遗留的挂载点、不依赖 recovered_state，挪到后台线程，避免这个罕见尾部成本
+        // 拖住启动首帧前的同步体（best-effort，进程早退被杀也无妨）。非 macOS 为空 stub、无副作用。
+        let paths = self.paths.clone();
+        std::thread::spawn(move || {
+            helper::cleanup_stale_macos_mounts(&paths);
+        });
         Ok(())
     }
 
