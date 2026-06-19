@@ -25,6 +25,7 @@ const codeFoldingExtension = codeFolding({
 });
 import { liveEditorTheme, liveHighlighting } from "./liveEditor/theme";
 import { livePreview } from "./liveEditor/livePreview";
+import type { CodeMetrics } from "./liveEditor/widgets";
 
 export interface LiveEditorProps {
   value: string;
@@ -62,6 +63,31 @@ const identity = (src: string) => src;
 // 这类事务不是用户编辑，updateListener 据此跳过 onChange，避免新载入的笔记被误标脏
 // → 否则下一次切换会触发"保存"（外部文件会被无谓回写到磁盘、改 mtime）。
 const externalSync = Annotation.define<boolean>();
+
+// Measure code-block geometry from the live editor so inactive code-block widgets can
+// report an accurate `estimatedHeight` (the root fix for the first-click viewport jump).
+// Code is monospace at 0.88em with the editor's unitless 1.9 line-height, so one code
+// line ≈ defaultLineHeight × 0.88; char width is probed directly (proportional → mono
+// can't be scaled by a constant). Block padding is 1em L+R at the code size; the optional
+// line-number gutter adds 3.2em.
+function measureCodeMetrics(view: EditorView, showLineNumbers: boolean): CodeMetrics {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:absolute;visibility:hidden;left:-9999px;top:0;white-space:pre;margin:0;padding:0;" +
+    "font-family:var(--font-mono);font-size:0.88em;line-height:1.9;";
+  probe.textContent = "0".repeat(100);
+  view.contentDOM.appendChild(probe);
+  const rect = probe.getBoundingClientRect();
+  const codeFontPx = parseFloat(getComputedStyle(probe).fontSize) || 12;
+  view.contentDOM.removeChild(probe);
+
+  const charWidth = rect.width / 100 || codeFontPx * 0.6;
+  const lineHeight = rect.height || view.defaultLineHeight * 0.88;
+  const horizPad = codeFontPx * 2;
+  const lnGutter = showLineNumbers ? codeFontPx * 3.2 : 0;
+  const contentWidth = Math.max(charWidth * 4, view.contentDOM.clientWidth - horizPad - lnGutter);
+  return { lineHeight, charWidth, contentWidth };
+}
 
 export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function LiveEditor(
   {
@@ -121,6 +147,10 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
   showCodeLineNumbersRef.current = showCodeLineNumbers;
   const activeHighlightRef = useRef(activeHighlight);
   activeHighlightRef.current = activeHighlight;
+  const codeWrapRef = useRef(codeWrap);
+  codeWrapRef.current = codeWrap;
+  // Latest measured code geometry (null until the view has mounted + been measured).
+  const codeMetricsRef = useRef<CodeMetrics | null>(null);
 
   const makePreviewExtension = () =>
     livePreview({
@@ -129,7 +159,28 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
       activeBlock:
         activeHighlightRef.current === "block" || activeHighlightRef.current === "block-line",
       activeLineInBlock: activeHighlightRef.current === "block-line",
+      codeWrap: codeWrapRef.current,
+      codeMetrics: codeMetricsRef.current,
     });
+
+  // Re-measure code geometry and, if it changed, rebuild decorations so inactive
+  // code-block widgets re-estimate their height. Called on mount, resize, font change.
+  const applyCodeMetrics = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    const next = measureCodeMetrics(view, showCodeLineNumbersRef.current);
+    const prev = codeMetricsRef.current;
+    if (
+      prev &&
+      prev.lineHeight === next.lineHeight &&
+      prev.charWidth === next.charWidth &&
+      prev.contentWidth === next.contentWidth
+    ) {
+      return;
+    }
+    codeMetricsRef.current = next;
+    view.dispatch({ effects: previewCompartment.current.reconfigure(makePreviewExtension()) });
+  };
 
   // Create the editor once on mount.
   useEffect(() => {
@@ -173,7 +224,23 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
 
     if (autoFocus) view.focus();
 
+    // Measure code geometry once the view has laid out, then keep it current on resize
+    // (window resize, sidebar/outline toggle, split-pane drag all change the wrap width).
+    const rafId = requestAnimationFrame(() => applyCodeMetrics());
+    let resizePending = false;
+    const resizeObserver = new ResizeObserver(() => {
+      if (resizePending) return;
+      resizePending = true;
+      requestAnimationFrame(() => {
+        resizePending = false;
+        applyCodeMetrics();
+      });
+    });
+    resizeObserver.observe(view.scrollDOM);
+
     return () => {
+      cancelAnimationFrame(rafId);
+      resizeObserver.disconnect();
       view.destroy();
       viewRef.current = null;
     };
@@ -215,18 +282,23 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
     view.dispatch({
       effects: themeCompartment.current.reconfigure(liveEditorTheme(fontSize)),
     });
+    // Font size changes the code line height / char width → re-measure after relayout.
+    requestAnimationFrame(() => applyCodeMetrics());
   }, [fontSize]);
 
-  // React to image-resolver or code-line-number changes (rebuild decorations).
+  // React to image-resolver / code-line-number / highlight / code-wrap changes.
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
+    // showCodeLineNumbers (gutter) and codeWrap change the usable code width → re-measure
+    // into the ref first so the rebuilt widgets pick up the new metrics in one pass.
+    codeMetricsRef.current = measureCodeMetrics(view, showCodeLineNumbersRef.current);
     view.dispatch({
       effects: previewCompartment.current.reconfigure(makePreviewExtension()),
     });
     // makePreviewExtension reads the latest values via refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolveImageSrc, showCodeLineNumbers, activeHighlight]);
+  }, [resolveImageSrc, showCodeLineNumbers, activeHighlight, codeWrap]);
 
   // React to read-only changes.
   useEffect(() => {

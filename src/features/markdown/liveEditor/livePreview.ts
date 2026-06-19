@@ -5,6 +5,8 @@ import type { SyntaxNode } from "@lezer/common";
 import {
   BulletWidget,
   CheckboxWidget,
+  CodeBlockWidget,
+  type CodeMetrics,
   CodeToolbarWidget,
   HorizontalRuleWidget,
   ImageWidget,
@@ -20,6 +22,10 @@ export interface LivePreviewOptions {
   activeBlock?: boolean;
   /** Within the active block, give the cursor's own line a stronger tint ("block-line" mode). */
   activeLineInBlock?: boolean;
+  /** When false, code blocks scroll horizontally instead of wrapping (affects widget height). */
+  codeWrap?: boolean;
+  /** Measured code geometry, so inactive code-block widgets report accurate off-screen height. */
+  codeMetrics?: CodeMetrics | null;
 }
 
 const LIST_LEVEL_INDENT_EM = 1.5;
@@ -202,6 +208,47 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
         if (name === "FencedCode") {
           const startLine = doc.lineAt(from).number;
           const endLine = doc.lineAt(to).number;
+          const firstLine = doc.line(startLine);
+          const kids = directChildren(nodeRef.node);
+          const info = kids.find((k) => k.name === "CodeInfo");
+          const text = kids.find((k) => k.name === "CodeText");
+          const lang = info ? doc.sliceString(info.from, info.to).trim() : "";
+          const foldTo = Math.min(to, doc.length);
+          const codeFrom = text ? text.from : firstLine.to;
+          const codeTo = text ? text.to : foldTo;
+          let folded = false;
+          foldedRanges(state).between(firstLine.to, foldTo, () => {
+            folded = true;
+          });
+
+          // Inactive (cursor outside) → one block-replace widget with an accurate
+          // estimatedHeight; that off-screen height fixes the first-click viewport jump.
+          // Active → fall through to the editable per-line source render below.
+          const lineFrom = firstLine.from;
+          const lineTo = doc.lineAt(endLine).to;
+          if (!isActive(lineFrom, lineTo)) {
+            const source = doc.sliceString(lineFrom, lineTo);
+            decorations.push(
+              Decoration.replace({
+                widget: new CodeBlockWidget(
+                  source,
+                  lineFrom,
+                  lang,
+                  folded,
+                  options.showCodeLineNumbers ?? false,
+                  options.codeWrap ?? true,
+                  firstLine.to,
+                  foldTo,
+                  codeFrom,
+                  codeTo,
+                  options.codeMetrics ?? null,
+                ),
+                block: true,
+              }).range(lineFrom, lineTo),
+            );
+            return false;
+          }
+
           for (let l = startLine; l <= endLine; l++) {
             const line = doc.line(l);
             const classes = ["cm-md-code-block"];
@@ -220,18 +267,6 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
           }
           // Top-right toolbar (language · copy · fold) anchored on the opening
           // fence line, outside the foldable range so it survives folding.
-          const firstLine = doc.line(startLine);
-          const kids = directChildren(nodeRef.node);
-          const info = kids.find((k) => k.name === "CodeInfo");
-          const text = kids.find((k) => k.name === "CodeText");
-          const lang = info ? doc.sliceString(info.from, info.to).trim() : "";
-          const foldTo = Math.min(to, doc.length);
-          const codeFrom = text ? text.from : firstLine.to;
-          const codeTo = text ? text.to : foldTo;
-          let folded = false;
-          foldedRanges(state).between(firstLine.to, foldTo, () => {
-            folded = true;
-          });
           decorations.push(
             Decoration.widget({
               widget: new CodeToolbarWidget(lang, firstLine.to, foldTo, codeFrom, codeTo, folded),

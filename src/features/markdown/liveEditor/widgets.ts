@@ -131,6 +131,148 @@ export class CodeToolbarWidget extends WidgetType {
   }
 }
 
+/** Measured code-block geometry, fed in so `estimatedHeight` is accurate off-screen. */
+export interface CodeMetrics {
+  /** px height of one code line (0.88em × editor line-height). */
+  lineHeight: number;
+  /** px width of one monospace char at the code font size (0.88em). */
+  charWidth: number;
+  /** px width usable for code text inside a block (content width − padding − ln gutter). */
+  contentWidth: number;
+}
+
+function metricsEqual(a: CodeMetrics | null, b: CodeMetrics | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.lineHeight === b.lineHeight &&
+    a.charWidth === b.charWidth &&
+    a.contentWidth === b.contentWidth
+  );
+}
+
+/**
+ * An inactive (cursor-outside) fenced code block rendered as a block-replace widget.
+ * Visually mirrors the active per-line source render (same monospace lines), but is a
+ * single atomic block — which lets us hand CM6 an accurate `estimatedHeight` for the
+ * off-screen height map. That is the root fix for the "first click after switch/scroll
+ * jumps the viewport": CM6's global HeightOracle mis-estimates wrapped 0.88em code
+ * lines, and the accumulated error releases on the first real measurement; an accurate
+ * widget height removes the error. `mousedown` enters editing at the clicked line
+ * (the StateField then re-renders that block as editable per-line source — swap-to-source).
+ */
+export class CodeBlockWidget extends WidgetType {
+  constructor(
+    readonly source: string,
+    readonly from: number,
+    readonly lang: string,
+    readonly folded: boolean,
+    readonly showLineNumbers: boolean,
+    readonly codeWrap: boolean,
+    readonly foldFrom: number,
+    readonly foldTo: number,
+    readonly codeFrom: number,
+    readonly codeTo: number,
+    readonly metrics: CodeMetrics | null,
+  ) {
+    super();
+  }
+
+  eq(other: CodeBlockWidget) {
+    return (
+      other.source === this.source &&
+      other.from === this.from &&
+      other.folded === this.folded &&
+      other.showLineNumbers === this.showLineNumbers &&
+      other.codeWrap === this.codeWrap &&
+      metricsEqual(other.metrics, this.metrics)
+    );
+  }
+
+  /** Visual line count incl. soft-wrap — drives estimatedHeight + swap-height parity. */
+  private visualLineCount(): number {
+    if (this.folded) return 1;
+    const lines = this.source.split("\n");
+    if (!this.codeWrap || !this.metrics || this.metrics.charWidth <= 0) return lines.length;
+    const perRow = Math.max(1, Math.floor(this.metrics.contentWidth / this.metrics.charWidth));
+    return lines.reduce((n, ln) => n + Math.max(1, Math.ceil(ln.length / perRow)), 0);
+  }
+
+  get estimatedHeight() {
+    const lh = this.metrics?.lineHeight ?? 22;
+    // Vertical padding mirrors .cm-md-code-block-first/last (0.3em top + 0.3em bottom).
+    return this.visualLineCount() * lh + lh * 0.32;
+  }
+
+  toDOM(view: EditorView) {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-md-code-block-widget" + (this.codeWrap ? "" : " code-nowrap");
+    wrap.setAttribute("contenteditable", "false");
+
+    wrap.appendChild(
+      buildCodeToolbar(view, {
+        lang: this.lang,
+        foldFrom: this.foldFrom,
+        foldTo: this.foldTo,
+        codeFrom: this.codeFrom,
+        codeTo: this.codeTo,
+        folded: this.folded,
+      }),
+    );
+
+    const body = document.createElement("div");
+    body.className = "cm-md-code-widget-body";
+    const lines = this.source.split("\n");
+    const lastIdx = lines.length - 1;
+    let offset = this.from;
+    const shown = this.folded ? 1 : lines.length;
+    for (let i = 0; i < shown; i++) {
+      const text = lines[i];
+      const row = document.createElement("div");
+      row.className = "cm-md-code-widget-line";
+      row.dataset.from = String(offset);
+      const isFence = i === 0 || i === lastIdx;
+      if (this.showLineNumbers && !isFence) {
+        const ln = document.createElement("span");
+        ln.className = "cm-md-code-widget-ln";
+        ln.textContent = String(i);
+        row.appendChild(ln);
+      }
+      const code = document.createElement("span");
+      code.className = isFence ? "cm-md-code-widget-fence" : "cm-md-code-widget-code";
+      // Zero-width space keeps empty lines at full line height.
+      code.textContent = text.length ? text : "​";
+      row.appendChild(code);
+      body.appendChild(row);
+      offset += text.length + 1; // + newline
+    }
+    if (this.folded) {
+      const more = document.createElement("span");
+      more.className = "cm-md-fold-placeholder";
+      more.textContent = "⋯";
+      body.appendChild(more);
+    }
+    wrap.appendChild(body);
+
+    // Click → enter editing at the clicked line (swap the widget back to source).
+    wrap.addEventListener("mousedown", (event) => {
+      const target = event.target as HTMLElement;
+      if (target.closest(".cm-md-code-toolbar")) return; // toolbar buttons handle themselves
+      const row = target.closest(".cm-md-code-widget-line") as HTMLElement | null;
+      const pos = row?.dataset.from ? Number(row.dataset.from) : this.from;
+      event.preventDefault();
+      view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+      view.focus();
+    });
+
+    return wrap;
+  }
+
+  ignoreEvent() {
+    return false;
+  }
+}
+
 /** A round bullet replacing a `-` / `*` / `+` list marker. */
 export class BulletWidget extends WidgetType {
   eq() {

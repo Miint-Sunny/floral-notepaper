@@ -826,6 +826,53 @@ input::placeholder {
   pointer-events: none;
 }
 
+/* Inactive (cursor-outside) fenced code block rendered as one block-replace widget.
+   Mirrors the active per-line source render so swapping in/out is visually seamless;
+   its accurate estimatedHeight (see CodeBlockWidget) is what removes the click-jump. */
+.cm-md-code-block-widget {
+  position: relative;
+  margin: 0;
+  padding: 0.3em 1em;
+  border-radius: 6px;
+  background-color: color-mix(in srgb, var(--color-paper-warm) 80%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  line-height: 1.9;
+  overflow: hidden;
+  cursor: text;
+}
+.cm-md-code-block-widget.code-nowrap {
+  overflow-x: auto;
+}
+.cm-md-code-widget-line {
+  display: flex;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cm-md-code-block-widget.code-nowrap .cm-md-code-widget-line {
+  white-space: pre;
+}
+.cm-md-code-widget-ln {
+  flex: 0 0 auto;
+  width: 2em;
+  margin-right: 1em;
+  text-align: right;
+  color: var(--color-ink-ghost);
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.cm-md-code-widget-code {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cm-md-code-block-widget.code-nowrap .cm-md-code-widget-code {
+  white-space: pre;
+}
+.cm-md-code-widget-fence {
+  color: var(--color-ink-ghost);
+}
+
 /* Code-block toolbar (language · copy · fold) anchored top-right of the block */
 .cm-md-code-block-first {
   position: relative;
