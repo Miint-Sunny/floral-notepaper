@@ -104,6 +104,10 @@ pub struct AppConfig {
     // 预览代码块自动换行（默认开）。
     #[serde(default = "default_code_wrap")]
     pub code_wrap: bool,
+    /// 即时模式：行数 ≤ 此值的文档整篇全渲染（关掉 CM6 虚拟化 → 无屏外估算 → 无点击弹射）；
+    /// 超过则正常虚拟化。可被设置调整、被"渲染过慢"熔断自动降档。
+    #[serde(default = "default_live_full_render_max_lines")]
+    pub live_full_render_max_lines: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface_width: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1120,6 +1124,7 @@ impl NoteStore {
             sidebar_zoom: 1.0,
             outline_zoom: 1.0,
             code_wrap: true,
+            live_full_render_max_lines: 2000,
             surface_width: None,
             surface_height: None,
             toggle_visibility_shortcut: default_toggle_visibility_shortcut(),
@@ -1716,6 +1721,10 @@ fn default_code_wrap() -> bool {
     true
 }
 
+fn default_live_full_render_max_lines() -> u32 {
+    2000
+}
+
 fn default_toggle_visibility_shortcut() -> String {
     String::new()
 }
@@ -1902,6 +1911,7 @@ mod tests {
             sidebar_zoom: 1.0,
             outline_zoom: 1.0,
             code_wrap: true,
+            live_full_render_max_lines: 2000,
             surface_width: None,
             surface_height: None,
             toggle_visibility_shortcut: String::new(),

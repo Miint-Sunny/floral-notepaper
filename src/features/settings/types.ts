@@ -39,6 +39,7 @@ export interface AppConfig {
   sidebarZoom: number;
   outlineZoom: number;
   codeWrap: boolean;
+  liveFullRenderMaxLines: number;
   surfaceWidth?: number;
   surfaceHeight?: number;
   toggleVisibilityShortcut: string;

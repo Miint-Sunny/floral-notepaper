@@ -482,9 +482,12 @@
       "tileDoubleClickToEdit": "Double-click a tile to start editing (off by default)",
       "tileSaveReturnsToPin": "Switch back to the tile after a manual save (off by default)",
       "openAtCursor": "The quick window opens near the cursor when summoned by shortcut",
-      "codeWrap": "Wrap long code lines in preview/live; off = horizontal scroll"
+      "codeWrap": "Wrap long code lines in preview/live; off = horizontal scroll",
+      "liveFullRender": "Notes with ≤ this many lines render fully, eliminating the Live-mode click-jump; larger notes virtualize to stay smooth. Auto-backs-off on lag."
     },
     "codeWrap": "Code block wrapping",
+    "liveFullRender": "Full-render limit (kills click-jump)",
+    "liveFullRenderUnit": " lines",
     "sidebarZoom": "Sidebar zoom",
     "outlineZoom": "Outline zoom"
   },

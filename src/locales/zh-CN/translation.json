@@ -482,9 +482,12 @@
       "tileDoubleClickToEdit": "在磁贴上双击直接进入编辑（默认关）",
       "tileSaveReturnsToPin": "小窗手动保存成功后自动切回磁贴（默认关）",
       "openAtCursor": "使用快捷键唤出时，小窗出现在当前鼠标附近",
-      "codeWrap": "预览/即时中长代码行自动换行；关闭则改为横向滚动"
+      "codeWrap": "预览/即时中长代码行自动换行；关闭则改为横向滚动",
+      "liveFullRender": "行数 ≤ 此值的笔记整篇渲染，彻底消除即时模式点击弹射；更大的笔记自动虚拟化以保流畅。遇到卡顿会自动降档。"
     },
     "codeWrap": "代码块自动换行",
+    "liveFullRender": "整篇渲染上限（消点击弹射）",
+    "liveFullRenderUnit": " 行",
     "sidebarZoom": "边栏缩放",
     "outlineZoom": "大纲缩放"
   },

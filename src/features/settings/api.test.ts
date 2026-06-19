@@ -63,6 +63,7 @@ describe("settings api", () => {
       sidebarZoom: 1,
       outlineZoom: 1,
       codeWrap: true,
+      liveFullRenderMaxLines: 2000,
       openAtCursor: true,
     };
     mockedInvoke.mockResolvedValue(config);
@@ -108,6 +109,7 @@ describe("settings api", () => {
       sidebarZoom: 1,
       outlineZoom: 1,
       codeWrap: true,
+      liveFullRenderMaxLines: 2000,
       openAtCursor: true,
     };
     mockedInvoke.mockResolvedValue(config);

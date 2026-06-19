@@ -324,6 +324,9 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
             valueWidth="w-12"
             onChange={(value) => setConfigValue("outlineZoom", Math.round(value * 100) / 100)}
           />
+          {/* 「整篇渲染上限」滑块已隐藏：点击弹射改由 CJK 估高补丁 + 滚动守卫根治，不再依赖
+              全渲染门控（该路径会 teleport，已弃用）。AppConfig 字段 live_full_render_max_lines
+              与熔断逻辑暂留作以后可能重用，UI 先不暴露给用户。 */}
         </section>
 
         {/* 磁贴与小窗：先磁贴，后小窗 */}

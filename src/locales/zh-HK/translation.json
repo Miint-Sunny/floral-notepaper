@@ -463,9 +463,12 @@
       "tileDoubleClickToEdit": "在磁貼上雙擊直接進入編輯（預設關）",
       "tileSaveReturnsToPin": "小窗手動儲存成功後自動切回磁貼（預設關）",
       "openAtCursor": "使用快捷鍵喚出時，小窗出現在目前滑鼠附近",
-      "codeWrap": "預覽/即時中長程式碼行自動換行；關閉則改為橫向捲動"
+      "codeWrap": "預覽/即時中長程式碼行自動換行；關閉則改為橫向捲動",
+      "liveFullRender": "行數 ≤ 此值的筆記整篇渲染，徹底消除即時模式點擊彈跳；更大的筆記自動虛擬化以保流暢。遇到卡頓會自動降檔。"
     },
     "codeWrap": "程式碼區塊自動換行",
+    "liveFullRender": "整篇渲染上限（消點擊彈跳）",
+    "liveFullRenderUnit": " 行",
     "sidebarZoom": "邊欄縮放",
     "outlineZoom": "大綱縮放"
   },

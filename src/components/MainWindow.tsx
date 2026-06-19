@@ -3590,6 +3590,16 @@ export function MainWindow({
                           showEditorLineNumbers={settingsConfig?.editorLineNumbers ?? false}
                           activeHighlight={settingsConfig?.liveActiveHighlight ?? "off"}
                           codeWrap={settingsConfig?.codeWrap ?? true}
+                          fullRenderMaxLines={settingsConfig?.liveFullRenderMaxLines ?? 2000}
+                          onSlowRender={(atLines) => {
+                            // 熔断：某篇全渲染太慢 → 把阈值降到它之下并持久化，
+                            // 同样大小的文档下次走虚拟化（不预防第一次，保证不发生第二次）。
+                            const current = settingsConfig?.liveFullRenderMaxLines ?? 2000;
+                            const next = Math.max(200, atLines - 1);
+                            if (next < current) {
+                              persistUiState({ liveFullRenderMaxLines: next });
+                            }
+                          }}
                           placeholder={t("main.editor.contentPlaceholder", {
                             defaultValue: "开始写作……",
                           })}
