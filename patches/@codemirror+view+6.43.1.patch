@@ -1,0 +1,90 @@
+diff --git a/node_modules/@codemirror/view/dist/index.js b/node_modules/@codemirror/view/dist/index.js
+index 0c0b3ee..e6ca870 100644
+--- a/node_modules/@codemirror/view/dist/index.js
++++ b/node_modules/@codemirror/view/dist/index.js
+@@ -5316,6 +5316,22 @@ const wrappingWhiteSpace = ["pre-wrap", "normal", "pre-line", "break-spaces"];
+ // Used to track, during updateHeight, if any actual heights changed
+ let heightChangeFlag = false;
+ function clearHeightChangeFlag() { heightChangeFlag = false; }
++function cjkIsWideChar(cp) {
++    return (cp >= 0x1100 && cp <= 0x115f) || (cp >= 0x2e80 && cp <= 0x303e) || (cp >= 0x3041 && cp <= 0x33ff) ||
++        (cp >= 0x3400 && cp <= 0x4dbf) || (cp >= 0x4e00 && cp <= 0x9fff) || (cp >= 0xa000 && cp <= 0xa4cf) ||
++        (cp >= 0xac00 && cp <= 0xd7a3) || (cp >= 0xf900 && cp <= 0xfaff) || (cp >= 0xfe30 && cp <= 0xfe4f) ||
++        (cp >= 0xff00 && cp <= 0xff60) || (cp >= 0xffe0 && cp <= 0xffe6) || (cp >= 0x1f300 && cp <= 0x1faff) ||
++        (cp >= 0x20000 && cp <= 0x3fffd);
++}
++function cjkEffectiveCols(str) {
++    let cols = 0;
++    for (let i = 0; i < str.length;) {
++        let cp = str.codePointAt(i);
++        i += cp > 0xffff ? 2 : 1;
++        cols += cjkIsWideChar(cp) ? 2 : 1;
++    }
++    return cols;
++}
+ class HeightOracle {
+     constructor(lineWrapping) {
+         this.lineWrapping = lineWrapping;
+@@ -5328,14 +5344,16 @@ class HeightOracle {
+     }
+     heightForGap(from, to) {
+         let lines = this.doc.lineAt(to).number - this.doc.lineAt(from).number + 1;
+-        if (this.lineWrapping)
+-            lines += Math.max(0, Math.ceil(((to - from) - (lines * this.lineLength * 0.5)) / this.lineLength));
++        if (this.lineWrapping) {
++            let cols = cjkEffectiveCols(this.doc.sliceString(from, to));
++            lines += Math.max(0, Math.ceil((cols - (lines * this.lineLength * 0.5)) / this.lineLength));
++        }
+         return this.lineHeight * lines;
+     }
+-    heightForLine(length) {
++    heightForLine(length, cols = length) {
+         if (!this.lineWrapping)
+             return this.lineHeight;
+-        let lines = 1 + Math.max(0, Math.ceil((length - this.lineLength) / Math.max(1, this.lineLength - 5)));
++        let lines = 1 + Math.max(0, Math.ceil((cols - this.lineLength) / Math.max(1, this.lineLength - 5)));
+         return lines * this.lineHeight;
+     }
+     setDoc(doc) { this.doc = doc; return this; }
+@@ -5658,7 +5676,9 @@ class HeightMapText extends HeightMapBlock {
+         }
+         else if (force || this.outdated) {
+             this.spaceAbove = 0;
+-            this.setHeight(Math.max(this.widgetHeight, oracle.heightForLine(this.length - this.collapsed)) +
++            let visibleLen = this.length - this.collapsed;
++            let cols = oracle.lineWrapping ? cjkEffectiveCols(oracle.doc.sliceString(offset, offset + visibleLen)) : visibleLen;
++            this.setHeight(Math.max(this.widgetHeight, oracle.heightForLine(visibleLen, cols)) +
+                 this.breaks * oracle.lineHeight);
+         }
+         this.outdated = false;
+@@ -6386,6 +6406,7 @@ class ViewState {
+     get visibleTop() { return this.scaler.fromDOM(this.pixelViewport.top); }
+     get visibleBottom() { return this.scaler.fromDOM(this.pixelViewport.bottom); }
+     getViewport(bias, scrollTarget) { 
++       
+         // This will divide VP.Margin between the top and the
+         // bottom, depending on the bias (the change in viewport position
+         // since the last update). It'll hold a number between 0 and 1
+@@ -8169,6 +8190,13 @@ class EditorView {
+                     this.docView.updateSelection(true);
+                 if (!update.viewportChanged && this.measureRequests.length == 0) {
+                     if (this.viewState.editorHeight) {
++                        if (this.viewState.scrollTarget && this._noClickScroll) {
++                            // App-set guard: a pointer click must never scroll the viewport, but
++                            // CM6 dispatches the click selection with scrollIntoView:true. Drop
++                            // the pending scroll target so it never fires (the "click-fly", which
++                            // is deferred past any time window). Cleared on the next wheel/keydown.
++                            this.viewState.scrollTarget = null;
++                        }
+                         if (this.viewState.scrollTarget) {
+                             this.docView.scrollIntoView(this.viewState.scrollTarget);
+                             this.viewState.scrollTarget = null;
+@@ -8179,7 +8207,7 @@ class EditorView {
+                             let newAnchorHeight = scrollAnchorPos < 0 ? this.viewState.heightMap.height :
+                                 this.viewState.lineBlockAt(scrollAnchorPos).top;
+                             let diff = (newAnchorHeight - scrollAnchorHeight) / this.scaleY;
+-                            if ((diff > 1 || diff < -1) &&
++                            if ((diff > 1 || diff < -1) && !this._noClickScroll &&
+                                 (scroll == this.scrollDOM || this.hasFocus ||
+                                     Math.max(this.inputState.lastWheelEvent, this.inputState.lastTouchTime) > Date.now() - 100)) {
+                                 scrollOffset = scrollOffset + diff;

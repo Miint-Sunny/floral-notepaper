@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "version:sync": "node scripts/set-version.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
@@ -56,6 +57,7 @@
     "lint-staged": "^17.0.5",
     "oxfmt": "^0.51.0",
     "oxlint": "^1.66.0",
+    "patch-package": "^8.0.1",
     "tailwindcss": "^4.2.4",
     "typescript": "~5.8.3",
     "vite": "^8.0.16",
