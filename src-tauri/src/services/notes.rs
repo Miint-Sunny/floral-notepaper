@@ -784,11 +784,13 @@ impl NoteStore {
         }
         fs::write(&new_path, &request.content)?;
 
+        // 改名/移动：先写新文件、再永久删除旧文件（fs::remove_file，不进回收站）——
+        // 避免回收站堆积无用副本（上游 #314）。保持"先写后删"顺序：任一步失败时
+        // metadata 仍指向尚存的旧文件、指针不悬空（比"先 rename 后写"更安全）。
         if old_file_name != new_file_name || old_category != new_category {
             let old_path = self.note_path_in_category(&old_file_name, &old_category);
             if old_path.exists() && old_path != new_path {
-                trash::delete(&old_path)
-                    .map_err(|e| AppError::new("trash", format!("移入回收站失败: {e}")))?;
+                fs::remove_file(&old_path)?;
             }
         }
 
