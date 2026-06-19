@@ -292,7 +292,10 @@ export class CodeBlockWidget extends WidgetType {
       const row = target.closest(".cm-md-code-widget-line") as HTMLElement | null;
       const pos = row?.dataset.from ? Number(row.dataset.from) : this.from;
       event.preventDefault();
-      view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+      // No scrollIntoView: the click target is already on-screen; scrolling it to the
+      // viewport top is the "cursor jumps to first line" bug. The scroll-anchor extension
+      // keeps the click point stable against CM6's height-estimate correction.
+      view.dispatch({ selection: { anchor: pos } });
       view.focus();
     });
 
@@ -508,10 +511,9 @@ export class TableWidget extends WidgetType {
     wrap.appendChild(table);
     wrap.addEventListener("mousedown", (event) => {
       event.preventDefault();
-      view.dispatch({
-        selection: { anchor: this.from },
-        scrollIntoView: true,
-      });
+      // No scrollIntoView (see CodeBlockWidget): the table is already on-screen; the
+      // scroll-anchor extension keeps the click point stable.
+      view.dispatch({ selection: { anchor: this.from } });
       view.focus();
     });
     return wrap;

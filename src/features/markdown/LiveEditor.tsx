@@ -25,6 +25,7 @@ const codeFoldingExtension = codeFolding({
 });
 import { liveEditorTheme, liveHighlighting } from "./liveEditor/theme";
 import { livePreview } from "./liveEditor/livePreview";
+import { scrollAnchor } from "./liveEditor/scrollAnchor";
 import type { CodeMetrics } from "./liveEditor/widgets";
 
 export interface LiveEditorProps {
@@ -196,6 +197,7 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
           lineNumbersCompartment.current.of(showEditorLineNumbers ? lineNumbers() : []),
           activeLineCompartment.current.of(activeHighlight === "line" ? highlightActiveLine() : []),
           EditorView.lineWrapping,
+          scrollAnchor(),
           markdown({ base: markdownLanguage, codeLanguages: languages }),
           codeFoldingExtension,
           liveHighlighting,
