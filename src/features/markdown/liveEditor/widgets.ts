@@ -18,6 +18,78 @@ function rangeFolded(view: EditorView, from: number, to: number): boolean {
   return folded;
 }
 
+export interface CodeToolbarOptions {
+  lang: string;
+  /** Range collapsed when folding (everything after the opening fence line). */
+  foldFrom: number;
+  foldTo: number;
+  /** Code text used for the copy button. */
+  codeFrom: number;
+  codeTo: number;
+  folded: boolean;
+}
+
+/**
+ * Build the top-right code-block toolbar DOM (language · copy · fold/expand).
+ * Shared by `CodeToolbarWidget` (active per-line render) and `CodeBlockWidget`
+ * (inactive block-replace render) so the toolbar stays identical across both.
+ */
+export function buildCodeToolbar(view: EditorView, opts: CodeToolbarOptions): HTMLElement {
+  const { lang, foldFrom, foldTo, codeFrom, codeTo, folded } = opts;
+  const bar = document.createElement("div");
+  bar.className = "cm-md-code-toolbar";
+  bar.contentEditable = "false";
+  bar.setAttribute("aria-hidden", "true");
+
+  if (lang) {
+    const el = document.createElement("span");
+    el.className = "cm-md-code-lang";
+    el.textContent = lang;
+    bar.appendChild(el);
+  }
+
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "cm-md-code-btn";
+  copy.title = "复制";
+  copy.innerHTML = COPY_ICON;
+  copy.addEventListener("mousedown", (e) => e.preventDefault());
+  copy.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const text = view.state.doc.sliceString(codeFrom, codeTo);
+    void navigator.clipboard?.writeText(text).then(() => {
+      copy.innerHTML = CHECK_ICON;
+      copy.classList.add("is-copied");
+      window.setTimeout(() => {
+        copy.innerHTML = COPY_ICON;
+        copy.classList.remove("is-copied");
+      }, 1200);
+    });
+  });
+  bar.appendChild(copy);
+
+  const fold = document.createElement("button");
+  fold.type = "button";
+  fold.className = "cm-md-code-btn";
+  fold.title = folded ? "展开" : "折叠";
+  fold.innerHTML = folded ? CHEVRON_DOWN : CHEVRON_UP;
+  fold.addEventListener("mousedown", (e) => e.preventDefault());
+  fold.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (foldTo <= foldFrom) return;
+    view.dispatch({
+      effects: rangeFolded(view, foldFrom, foldTo)
+        ? unfoldEffect.of({ from: foldFrom, to: foldTo })
+        : foldEffect.of({ from: foldFrom, to: foldTo }),
+    });
+  });
+  bar.appendChild(fold);
+
+  return bar;
+}
+
 /**
  * Top-right toolbar on a fenced code block: language · copy · fold/expand.
  * `foldFrom..foldTo` is the range collapsed when folding (everything after the
@@ -45,58 +117,14 @@ export class CodeToolbarWidget extends WidgetType {
     );
   }
   toDOM(view: EditorView) {
-    const bar = document.createElement("div");
-    bar.className = "cm-md-code-toolbar";
-    bar.contentEditable = "false";
-    bar.setAttribute("aria-hidden", "true");
-
-    if (this.lang) {
-      const lang = document.createElement("span");
-      lang.className = "cm-md-code-lang";
-      lang.textContent = this.lang;
-      bar.appendChild(lang);
-    }
-
-    const copy = document.createElement("button");
-    copy.type = "button";
-    copy.className = "cm-md-code-btn";
-    copy.title = "复制";
-    copy.innerHTML = COPY_ICON;
-    copy.addEventListener("mousedown", (e) => e.preventDefault());
-    copy.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const text = view.state.doc.sliceString(this.codeFrom, this.codeTo);
-      void navigator.clipboard?.writeText(text).then(() => {
-        copy.innerHTML = CHECK_ICON;
-        copy.classList.add("is-copied");
-        window.setTimeout(() => {
-          copy.innerHTML = COPY_ICON;
-          copy.classList.remove("is-copied");
-        }, 1200);
-      });
+    return buildCodeToolbar(view, {
+      lang: this.lang,
+      foldFrom: this.foldFrom,
+      foldTo: this.foldTo,
+      codeFrom: this.codeFrom,
+      codeTo: this.codeTo,
+      folded: this.folded,
     });
-    bar.appendChild(copy);
-
-    const fold = document.createElement("button");
-    fold.type = "button";
-    fold.className = "cm-md-code-btn";
-    fold.title = this.folded ? "展开" : "折叠";
-    fold.innerHTML = this.folded ? CHEVRON_DOWN : CHEVRON_UP;
-    fold.addEventListener("mousedown", (e) => e.preventDefault());
-    fold.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (this.foldTo <= this.foldFrom) return;
-      view.dispatch({
-        effects: rangeFolded(view, this.foldFrom, this.foldTo)
-          ? unfoldEffect.of({ from: this.foldFrom, to: this.foldTo })
-          : foldEffect.of({ from: this.foldFrom, to: this.foldTo }),
-      });
-    });
-    bar.appendChild(fold);
-
-    return bar;
   }
   ignoreEvent() {
     return true;
