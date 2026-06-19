@@ -53,6 +53,7 @@ describe("settings api", () => {
       codeBlockLineNumbers: false,
       editorLineNumbers: false,
       liveActiveHighlight: "off",
+      codeWrap: true,
       openAtCursor: true,
     };
     mockedInvoke.mockResolvedValue(config);
@@ -88,6 +89,7 @@ describe("settings api", () => {
       codeBlockLineNumbers: false,
       editorLineNumbers: false,
       liveActiveHighlight: "off",
+      codeWrap: true,
       openAtCursor: true,
     };
     mockedInvoke.mockResolvedValue(config);

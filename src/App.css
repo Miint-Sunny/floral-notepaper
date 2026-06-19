@@ -757,6 +757,12 @@ input::placeholder {
   scrollbar-width: thin;
 }
 
+/* 即时模式「代码块自动换行」关闭：覆盖 lineWrapping 继承的 pre-wrap，让代码块不换行、
+   由 .cm-scroller(overflow:auto) 整条横向滚动；正文仍按 lineWrapping 换行。 */
+.cm-live-editor.code-nowrap .cm-md-code-block {
+  white-space: pre;
+}
+
 /* Rendered table widget */
 .cm-md-table-wrap {
   margin: 0.6em 0;

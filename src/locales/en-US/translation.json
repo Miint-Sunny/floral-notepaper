@@ -57,8 +57,11 @@
     "unsupportedShortcutGeneric": "Shortcut configuration is invalid"
   },
   "markdown": {
+    "codeCollapsed": "… collapsed, click to expand",
+    "collapse": "Collapse",
     "copied": "Copied",
     "copy": "Copy",
+    "expand": "Expand",
     "emptyHint": "Preview of the current note",
     "alert": {
       "note": "Note",
@@ -276,6 +279,7 @@
     "renderHtmlMarkdown": "Render HTML tags in Markdown",
     "splitScrollSync": "Split view scroll sync",
     "codeBlockLineNumbers": "Code block line numbers (Live)",
+    "codeWrap": "Code block wrapping",
     "editorLineNumbers": "Editor line-number gutter (Live)",
     "title": "Settings",
     "update": {

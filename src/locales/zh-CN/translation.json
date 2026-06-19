@@ -57,8 +57,11 @@
     "unsupportedShortcutGeneric": "快捷键配置无效"
   },
   "markdown": {
+    "codeCollapsed": "… 已折叠，点击展开",
+    "collapse": "折叠",
     "copied": "已复制",
     "copy": "复制",
+    "expand": "展开",
     "emptyHint": "预览区会显示当前笔记内容",
     "alert": {
       "note": "备注",
@@ -276,6 +279,7 @@
     "renderHtmlMarkdown": "允许 HTML 标签渲染",
     "splitScrollSync": "分栏同步滚动",
     "codeBlockLineNumbers": "即时模式代码块行号",
+    "codeWrap": "代码块自动换行",
     "editorLineNumbers": "即时模式整篇行号栏",
     "title": "应用设置",
     "update": {

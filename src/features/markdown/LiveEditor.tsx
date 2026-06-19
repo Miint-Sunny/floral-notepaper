@@ -37,6 +37,8 @@ export interface LiveEditorProps {
   showCodeLineNumbers?: boolean;
   showEditorLineNumbers?: boolean;
   activeHighlight?: "off" | "line" | "block" | "block-line";
+  /** When false, fenced code blocks scroll horizontally instead of wrapping. */
+  codeWrap?: boolean;
   /**
    * Identity of the document currently shown (e.g. note id / external file path).
    * Lets value-sync tell a *switch* (docKey changes → cursor may reset) apart from
@@ -63,6 +65,7 @@ export function LiveEditor({
   showCodeLineNumbers = false,
   showEditorLineNumbers = false,
   activeHighlight = "off",
+  codeWrap = true,
   docKey,
 }: LiveEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -218,5 +221,10 @@ export function LiveEditor({
     });
   }, [activeHighlight]);
 
-  return <div ref={hostRef} className="cm-live-editor h-full overflow-hidden" />;
+  return (
+    <div
+      ref={hostRef}
+      className={`cm-live-editor h-full overflow-hidden ${codeWrap ? "" : "code-nowrap"}`}
+    />
+  );
 }

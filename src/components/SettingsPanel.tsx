@@ -233,6 +233,11 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
             checked={config.editorLineNumbers ?? false}
             onChange={(checked) => setConfigValue("editorLineNumbers", checked)}
           />
+          <ToggleRow
+            label={t("settings.codeWrap", { defaultValue: "代码块自动换行" })}
+            checked={config.codeWrap ?? true}
+            onChange={(checked) => setConfigValue("codeWrap", checked)}
+          />
         </section>
 
         {/* 快捷键功能设置区域，与上方常规设置分开 */}
