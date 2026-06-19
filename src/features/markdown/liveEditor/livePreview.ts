@@ -12,6 +12,7 @@ import {
   ImageWidget,
   TableWidget,
 } from "./widgets";
+import { codeLangLoaded } from "./codeHighlight";
 
 export interface LivePreviewOptions {
   /** Maps a markdown image src to a URL usable in an <img> tag. */
@@ -383,7 +384,10 @@ export function livePreview(options: LivePreviewOptions): Extension {
     create: (state) => buildDecorations(state, options),
     update: (value, tr) => {
       const foldChanged = tr.effects.some((e) => e.is(foldEffect) || e.is(unfoldEffect));
-      if (tr.docChanged || tr.selection || foldChanged) {
+      // A code grammar finished loading → rebuild so inactive code widgets re-render
+      // with syntax colours (see codeHighlight.ensureLanguage).
+      const grammarLoaded = tr.effects.some((e) => e.is(codeLangLoaded));
+      if (tr.docChanged || tr.selection || foldChanged || grammarLoaded) {
         return buildDecorations(tr.state, options);
       }
       return value;

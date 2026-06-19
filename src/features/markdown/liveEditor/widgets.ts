@@ -1,5 +1,11 @@
-import { EditorView, WidgetType } from "@codemirror/view";
+import { EditorView, type Rect, WidgetType } from "@codemirror/view";
 import { foldEffect, foldedRanges, unfoldEffect } from "@codemirror/language";
+import {
+  type CodeToken,
+  ensureLanguage,
+  getLoadedLanguage,
+  highlightCodeToLines,
+} from "./codeHighlight";
 
 const COPY_ICON =
   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
@@ -224,6 +230,19 @@ export class CodeBlockWidget extends WidgetType {
     body.className = "cm-md-code-widget-body";
     const lines = this.source.split("\n");
     const lastIdx = lines.length - 1;
+
+    // Syntax colours (Option B): if the grammar is loaded, colour the code content;
+    // otherwise render plain text and kick off the async load (re-renders on completion).
+    const support = this.lang && !this.folded ? getLoadedLanguage(this.lang) : undefined;
+    let tokenLines: CodeToken[][] | null = null;
+    if (support) {
+      try {
+        tokenLines = highlightCodeToLines(lines.slice(1, lastIdx).join("\n"), support);
+      } catch {
+        tokenLines = null;
+      }
+    }
+
     let offset = this.from;
     const shown = this.folded ? 1 : lines.length;
     for (let i = 0; i < shown; i++) {
@@ -240,8 +259,18 @@ export class CodeBlockWidget extends WidgetType {
       }
       const code = document.createElement("span");
       code.className = isFence ? "cm-md-code-widget-fence" : "cm-md-code-widget-code";
-      // Zero-width space keeps empty lines at full line height.
-      code.textContent = text.length ? text : "​";
+      const tokens = !isFence && tokenLines ? tokenLines[i - 1] : null;
+      if (tokens && tokens.length) {
+        for (const tok of tokens) {
+          const span = document.createElement("span");
+          if (tok.cls) span.className = tok.cls;
+          span.textContent = tok.text;
+          code.appendChild(span);
+        }
+      } else {
+        // Zero-width space keeps empty lines at full line height.
+        code.textContent = text.length ? text : "​";
+      }
       row.appendChild(code);
       body.appendChild(row);
       offset += text.length + 1; // + newline
@@ -253,6 +282,8 @@ export class CodeBlockWidget extends WidgetType {
       body.appendChild(more);
     }
     wrap.appendChild(body);
+
+    if (!support && this.lang && !this.folded) ensureLanguage(this.lang, view);
 
     // Click → enter editing at the clicked line (swap the widget back to source).
     wrap.addEventListener("mousedown", (event) => {
@@ -266,6 +297,26 @@ export class CodeBlockWidget extends WidgetType {
     });
 
     return wrap;
+  }
+
+  /**
+   * Map a doc position inside the block to its on-screen rect (the containing row's
+   * vertical extent). Lets CM6 resolve cursor/scroll coordinates over the widget
+   * instead of guessing, trimming the residual first-click jitter that an accurate
+   * estimatedHeight alone leaves.
+   */
+  coordsAt(dom: HTMLElement, pos: number): Rect | null {
+    const rows = dom.querySelectorAll<HTMLElement>(".cm-md-code-widget-line");
+    let target: HTMLElement | null = null;
+    for (const row of rows) {
+      const f = Number(row.dataset.from);
+      if (Number.isNaN(f)) continue;
+      if (f <= pos) target = row;
+      else break;
+    }
+    const el = target ?? rows[0] ?? dom;
+    const rect = el.getBoundingClientRect();
+    return { left: rect.left, right: rect.left, top: rect.top, bottom: rect.bottom };
   }
 
   ignoreEvent() {
