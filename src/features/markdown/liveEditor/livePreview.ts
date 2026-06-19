@@ -226,7 +226,7 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
           // estimatedHeight; that off-screen height fixes the first-click viewport jump.
           // Active → fall through to the editable per-line source render below.
           const lineFrom = firstLine.from;
-          const lineTo = doc.lineAt(endLine).to;
+          const lineTo = doc.lineAt(to).to;
           if (!isActive(lineFrom, lineTo)) {
             const source = doc.sliceString(lineFrom, lineTo);
             decorations.push(
