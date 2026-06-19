@@ -25,7 +25,6 @@ const codeFoldingExtension = codeFolding({
 });
 import { liveEditorTheme, liveHighlighting } from "./liveEditor/theme";
 import { livePreview } from "./liveEditor/livePreview";
-import { scrollAnchor } from "./liveEditor/scrollAnchor";
 import type { CodeMetrics } from "./liveEditor/widgets";
 
 export interface LiveEditorProps {
@@ -49,6 +48,16 @@ export interface LiveEditorProps {
   docKey?: string | number;
   /** Fired with the main cursor's 0-based line whenever it moves. */
   onCursorLine?: (line: number) => void;
+  /**
+   * Docs with ≤ this many lines render fully (CM6 virtualization off → no off-screen
+   * height estimate → no click-fly). Larger docs virtualize. 0 disables full-render.
+   */
+  fullRenderMaxLines?: number;
+  /**
+   * Called when a full-render took longer than the budget, with the doc's line count,
+   * so the host can lower + persist the threshold (reactive auto-downgrade / "熔断").
+   */
+  onSlowRender?: (atLines: number) => void;
 }
 
 export interface LiveEditorHandle {
@@ -64,6 +73,27 @@ const identity = (src: string) => src;
 // 这类事务不是用户编辑，updateListener 据此跳过 onChange，避免新载入的笔记被误标脏
 // → 否则下一次切换会触发"保存"（外部文件会被无谓回写到磁盘、改 mtime）。
 const externalSync = Annotation.define<boolean>();
+
+// If a full-rendered doc takes longer than this to lay out, the host lowers + persists
+// the threshold so a doc that size virtualizes next time ("熔断" / reactive auto-downgrade).
+const SLOW_RENDER_BUDGET_MS = 250;
+
+function countLines(text: string): number {
+  let n = 1;
+  for (let i = 0; i < text.length; i++) {
+    if (text.charCodeAt(i) === 10) n++;
+  }
+  return n;
+}
+
+// The patched CM6 getViewport reads `__cmFullRender`: when true it renders the WHOLE doc
+// (viewport = [0, doc.length]) so every line is laid out AND measured → the height map is
+// real, never re-estimated → no estimate→real correction → no click-fly (the Typora/HyperMD
+// "no virtualization" model). Docs above the line threshold keep normal virtualization.
+function applyViewportMargin(lineCount: number, maxLines: number): void {
+  (globalThis as { __cmFullRender?: boolean }).__cmFullRender =
+    maxLines > 0 && lineCount <= maxLines;
+}
 
 // Measure code-block geometry from the live editor so inactive code-block widgets can
 // report an accurate `estimatedHeight` (the root fix for the first-click viewport jump).
@@ -105,6 +135,8 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
     codeWrap = true,
     docKey,
     onCursorLine,
+    fullRenderMaxLines = 2000,
+    onSlowRender,
   },
   ref,
 ) {
@@ -150,8 +182,26 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
   activeHighlightRef.current = activeHighlight;
   const codeWrapRef = useRef(codeWrap);
   codeWrapRef.current = codeWrap;
+  const fullRenderMaxLinesRef = useRef(fullRenderMaxLines);
+  fullRenderMaxLinesRef.current = fullRenderMaxLines;
+  const onSlowRenderRef = useRef(onSlowRender);
+  onSlowRenderRef.current = onSlowRender;
   // Latest measured code geometry (null until the view has mounted + been measured).
   const codeMetricsRef = useRef<CodeMetrics | null>(null);
+
+  // Circuit breaker: if this doc was full-rendered and the layout took too long, tell the
+  // host so it lowers + persists the threshold (next doc this size virtualizes instead).
+  const reportIfSlow = (text: string, startedAt: number) => {
+    const lines = countLines(text);
+    if (lines <= 0 || lines > fullRenderMaxLinesRef.current) return; // wasn't full-rendered
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (performance.now() - startedAt > SLOW_RENDER_BUDGET_MS) {
+          onSlowRenderRef.current?.(lines);
+        }
+      });
+    });
+  };
 
   const makePreviewExtension = () =>
     livePreview({
@@ -187,6 +237,10 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
   useEffect(() => {
     if (!hostRef.current) return;
 
+    // Tell the patched CM6 getViewport whether to render this doc fully (no click-fly).
+    applyViewportMargin(countLines(value), fullRenderMaxLines);
+    const mountStart = performance.now();
+
     const view = new EditorView({
       parent: hostRef.current,
       state: EditorState.create({
@@ -197,7 +251,6 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
           lineNumbersCompartment.current.of(showEditorLineNumbers ? lineNumbers() : []),
           activeLineCompartment.current.of(activeHighlight === "line" ? highlightActiveLine() : []),
           EditorView.lineWrapping,
-          scrollAnchor(),
           markdown({ base: markdownLanguage, codeLanguages: languages }),
           codeFoldingExtension,
           liveHighlighting,
@@ -226,6 +279,62 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
 
     if (autoFocus) view.focus();
 
+    // Circuit breaker: if the initial full-render was slow, ask the host to back off.
+    reportIfSlow(value, mountStart);
+
+    // Root fix for the "click-fly": a plain pointer click must never scroll the viewport, but
+    // CM6 dispatches the click's selection with scrollIntoView:true and its measure loop scrolls
+    // to a stale (top-ish) cursor coord — deferred until heights settle, so any JS time-window /
+    // scrollTop-pin loses the race. Instead we set `view._noClickScroll` on mousedown; the
+    // patched CM6 measure() (see patches/@codemirror+view) drops BOTH scroll-write paths (the
+    // pending scrollTarget AND the height-anchor correction) while it is set, no matter how many
+    // measures later they fire. The guard is cleared on the next genuine wheel/keydown (so the
+    // user can scroll/type and have the cursor revealed normally) with a fallback timeout so it
+    // never sticks. (Diagnosed via a scrollTop-setter stack trace: writer was scrollIntoView
+    // ←measure, NOT a height-estimate error — estimates are accurate after the CJK height patch.)
+    const setNoClickScroll = (on: boolean) => {
+      (view as unknown as { _noClickScroll?: boolean })._noClickScroll = on;
+    };
+    let clearTimer = 0;
+    let pinTop = 0;
+    let pinUntil = 0;
+    let pinRaf = 0;
+    const pinTick = () => {
+      if (Date.now() >= pinUntil) {
+        pinRaf = 0;
+        return;
+      }
+      if (view.scrollDOM.scrollTop !== pinTop) view.scrollDOM.scrollTop = pinTop;
+      pinRaf = requestAnimationFrame(pinTick);
+    };
+    const armSuppress = () => {
+      if (view.composing) return; // never interfere with IME composition
+      setNoClickScroll(true); // kernel guard: drop CM6's JS scroll paths (anchor + scrollTarget)
+      // Freeze scrollTop at the click position for one short window to also catch the NATIVE
+      // click-scroll teleport (WKWebView pulling the focused caret into view on click — goes
+      // through no JS scroll path, so the kernel guard misses it). rAF restores before paint;
+      // the `scroll` listener catches WKWebView's async-painted scroll. Native wheel resumes when
+      // the window ends (300ms) or the user types (keydown).
+      pinTop = view.scrollDOM.scrollTop;
+      pinUntil = Date.now() + 300;
+      if (!pinRaf) pinRaf = requestAnimationFrame(pinTick);
+      window.clearTimeout(clearTimer);
+      clearTimer = window.setTimeout(() => setNoClickScroll(false), 1500);
+    };
+    const endGuard = () => {
+      window.clearTimeout(clearTimer);
+      setNoClickScroll(false);
+      pinUntil = 0;
+    };
+    const onScroll = () => {
+      if (Date.now() < pinUntil && Math.abs(view.scrollDOM.scrollTop - pinTop) > 4) {
+        view.scrollDOM.scrollTop = pinTop;
+      }
+    };
+    view.contentDOM.addEventListener("mousedown", armSuppress, true);
+    view.scrollDOM.addEventListener("keydown", endGuard, true);
+    view.scrollDOM.addEventListener("scroll", onScroll, { passive: true });
+
     // Measure code geometry once the view has laid out, then keep it current on resize
     // (window resize, sidebar/outline toggle, split-pane drag all change the wrap width).
     const rafId = requestAnimationFrame(() => applyCodeMetrics());
@@ -243,6 +352,11 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
     return () => {
       cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
+      view.contentDOM.removeEventListener("mousedown", armSuppress, true);
+      view.scrollDOM.removeEventListener("keydown", endGuard, true);
+      view.scrollDOM.removeEventListener("scroll", onScroll);
+      window.clearTimeout(clearTimer);
+      if (pinRaf) cancelAnimationFrame(pinRaf);
       view.destroy();
       viewRef.current = null;
     };
@@ -274,8 +388,33 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
         head: Math.min(prev.head, value.length),
       };
     }
+    // Decide full-render vs virtualize for the newly-loaded doc before it lays out.
+    applyViewportMargin(countLines(value), fullRenderMaxLinesRef.current);
+    const switchStart = performance.now();
     view.dispatch(spec);
+    // Force CM6 to fully measure the just-loaded doc NOW (synchronously) instead of next frame:
+    // `view.dispatch` only schedules an async rAF measure, so until then the new doc sits with an
+    // ESTIMATED height map. The FIRST click would otherwise (a) trigger that deferred measure — a
+    // visible scroll flicker — and (b) resolve through the off-screen-estimate path of
+    // posAtCoords (imprecise → cursor snaps to the line start instead of the clicked column).
+    // Reading coordsAtPos runs readMeasured() → measure() right here, settling the viewport so the
+    // first post-switch click lands precisely with no scroll correction. Best-effort (try/catch
+    // for empty / out-of-range head). Diagnosed via a multi-agent read of the CM6 pointer path.
+    try {
+      view.coordsAtPos(view.state.selection.main.head);
+    } catch {
+      /* empty doc or out-of-range head — settle is best-effort */
+    }
+    // Circuit breaker: measure the full-render cost of the newly-loaded doc.
+    reportIfSlow(value, switchStart);
   }, [value, docKey]);
+
+  // Re-evaluate the current doc when the threshold changes (slider / 熔断 auto-downgrade).
+  useEffect(() => {
+    applyViewportMargin(countLines(value), fullRenderMaxLines);
+    viewRef.current?.requestMeasure();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullRenderMaxLines]);
 
   // React to font-size changes.
   useEffect(() => {
