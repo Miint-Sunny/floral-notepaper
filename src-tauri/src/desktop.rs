@@ -576,6 +576,8 @@ enum ShortcutAction {
 #[derive(Default)]
 struct NotepadPool {
     available: Mutex<Vec<String>>,
+    /// 单飞守卫：同一时刻只允许一个 prewarm 在飞，避免重叠预热泄漏隐藏 WebView（上游 #316）。
+    replenish_pending: AtomicBool,
 }
 
 impl NotepadPool {
@@ -598,6 +600,15 @@ impl NotepadPool {
             .lock()
             .map(|a| a.len() < NOTEPAD_POOL_CAPACITY)
             .unwrap_or(false)
+    }
+
+    /// 抢占补充权：返回 true 表示由本次负责补充（之前没有在飞的 prewarm）。
+    fn try_begin_replenish(&self) -> bool {
+        !self.replenish_pending.swap(true, Ordering::SeqCst)
+    }
+
+    fn finish_replenish(&self) {
+        self.replenish_pending.store(false, Ordering::SeqCst);
     }
 }
 
@@ -1565,22 +1576,47 @@ fn should_save_surface_size_before_close(label: &str) -> bool {
 }
 
 fn schedule_notepad_prewarm(app: &AppHandle) {
-    for i in 0..NOTEPAD_POOL_CAPACITY {
-        let delay = 800 + i as u64 * 400;
-        schedule_notepad_replenish(app, delay);
-    }
+    // 单发即可：补充链会在每次 prewarm 完成后自愈续补，直到填满容量
+    // （单飞守卫保证不重叠，见 schedule_notepad_replenish / 上游 #316）。
+    schedule_notepad_replenish(app, 800);
 }
 
 fn schedule_notepad_replenish(app: &AppHandle, delay_ms: u64) {
+    let Some(pool) = app.try_state::<NotepadPool>() else {
+        return;
+    };
+    if !pool.is_below_capacity() {
+        return;
+    }
+    // 已有 prewarm 在飞就不再叠加——重叠预热是上游 #316 的隐藏 WebView 泄漏根因。
+    if !pool.try_begin_replenish() {
+        return;
+    }
+
     let handle = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(delay_ms));
         let handle_inner = handle.clone();
-        let _ = handle.run_on_main_thread(move || {
-            if let Err(error) = prewarm_notepad(&handle_inner) {
+        let posted = handle.run_on_main_thread(move || {
+            let prewarmed = prewarm_notepad(&handle_inner);
+            if let Err(error) = &prewarmed {
                 eprintln!("failed to replenish notepad pool: {error}");
             }
+            if let Some(pool) = handle_inner.try_state::<NotepadPool>() {
+                pool.finish_replenish();
+                // 仅在本次预热成功、且仍未满时续补：预热失败就终止补充链，避免
+                // build 持续失败时每 200ms 忙重试（下次 take 会自然重新触发）。
+                if prewarmed.is_ok() && pool.is_below_capacity() {
+                    schedule_notepad_replenish(&handle_inner, 200);
+                }
+            }
         });
+        // 投递失败（事件循环已退出等）闭包不会执行：主动释放单飞守卫，免得 stuck。
+        if posted.is_err() {
+            if let Some(pool) = handle.try_state::<NotepadPool>() {
+                pool.finish_replenish();
+            }
+        }
     });
 }
 
@@ -1618,7 +1654,12 @@ fn prewarm_notepad(app: &AppHandle) -> Result<(), AppError> {
     .focused(false)
     .build()?;
 
-    pool.put(label);
+    // 构建期间可能已被其它路径填满：满了/入池失败就关掉这个待机窗，别泄漏（上游 #316）。
+    if !pool.is_below_capacity() || !pool.put(label.clone()) {
+        if let Some(window) = app.get_webview_window(&label) {
+            let _ = window.close();
+        }
+    }
 
     Ok(())
 }
