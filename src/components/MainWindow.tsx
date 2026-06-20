@@ -1416,16 +1416,20 @@ export function MainWindow({
     settingsConfig?.externalFileAutoSave,
   ]);
 
-  const handleNewNote = async () => {
+  const handleNewNoteInCategory = async (category: string) => {
     await saveCurrentNote();
     try {
-      const note = await createNote({ title: "", content: "", category: activeCategory });
+      const note = await createNote({ title: "", content: "", category });
       replaceNoteMetadata(note);
       applyNote(note);
+      setActiveCategory(category);
     } catch (error) {
       showToast(getErrorMessage(error));
     }
   };
+
+  // 顶部「新建笔记」始终建在根目录（未分类）；分类内新建走文件夹右键菜单。
+  const handleNewNote = () => handleNewNoteInCategory("");
 
   const handleOpenSettings = async () => {
     if (settingsOpen) {
@@ -3807,6 +3811,15 @@ export function MainWindow({
             </div>
           ) : (
             <div key="category-main" className="animate-menu-slide-right">
+              <button
+                onClick={() => {
+                  setCategoryMenuClosing(true);
+                  void handleNewNoteInCategory(categoryMenu.category);
+                }}
+                className="w-full text-left px-3 py-1.5 text-[12px] font-body text-ink-soft hover:bg-bamboo-mist/60 hover:text-bamboo transition-colors cursor-pointer"
+              >
+                {t("main.sidebar.newNote", { defaultValue: "新建笔记" })}
+              </button>
               <button
                 onClick={() => {
                   setCategoryMenuClosing(true);
