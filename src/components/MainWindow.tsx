@@ -1566,6 +1566,23 @@ export function MainWindow({
     return () => document.removeEventListener("keydown", handleFontSizeShortcut);
   }, [persistSettings]);
 
+  // 备注：Ctrl/Cmd+E 在四个视图模式间循环（编辑→分栏→预览→即时）。
+  // 对应上游 #313 的 Ctrl+E 切视图；in-app keydown，不占用 OS 全局快捷键。
+  useEffect(() => {
+    const VIEW_CYCLE: ViewMode[] = ["edit", "split", "preview", "live"];
+    function handleViewModeShortcut(event: KeyboardEvent) {
+      if (!event.ctrlKey && !event.metaKey) return;
+      if (event.key !== "e" && event.key !== "E") return;
+      event.preventDefault();
+      setViewMode((current) => {
+        const index = VIEW_CYCLE.indexOf(current);
+        return VIEW_CYCLE[(index + 1) % VIEW_CYCLE.length];
+      });
+    }
+    document.addEventListener("keydown", handleViewModeShortcut);
+    return () => document.removeEventListener("keydown", handleViewModeShortcut);
+  }, []);
+
   const handleCloseSettings = useCallback(() => {
     setSettingsOpen(false);
   }, []);
