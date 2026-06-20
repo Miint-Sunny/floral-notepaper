@@ -1,4 +1,10 @@
-import { StateField, type EditorState, type Extension, type Range } from "@codemirror/state";
+import {
+  StateEffect,
+  StateField,
+  type EditorState,
+  type Extension,
+  type Range,
+} from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
 import { foldEffect, foldedRanges, syntaxTree, unfoldEffect } from "@codemirror/language";
 import type { SyntaxNode } from "@lezer/common";
@@ -27,7 +33,16 @@ export interface LivePreviewOptions {
   codeWrap?: boolean;
   /** Measured code geometry, so inactive code-block widgets report accurate off-screen height. */
   codeMetrics?: CodeMetrics | null;
+  /** Returns true while an IME composition is active; rebuilds are deferred until it ends. */
+  isComposing?: () => boolean;
 }
+
+/**
+ * Forces a livePreview decoration rebuild even mid-composition. LiveEditor dispatches this on
+ * `compositionend` so the just-composed (CJK) text gets decorated once, instead of waiting for
+ * the next user interaction.
+ */
+export const rebuildLivePreviewEffect = StateEffect.define<null>();
 
 const LIST_LEVEL_INDENT_EM = 1.5;
 const activeBlockLine = Decoration.line({ class: "cm-md-active-block" });
@@ -383,11 +398,19 @@ export function livePreview(options: LivePreviewOptions): Extension {
   return StateField.define<DecorationSet>({
     create: (state) => buildDecorations(state, options),
     update: (value, tr) => {
+      const forced = tr.effects.some((e) => e.is(rebuildLivePreviewEffect));
+      // During IME composition, defer rebuilding decorations — hiding syntax / swapping
+      // widgets mid-compose disrupts the candidate window & caret. Map the existing set
+      // through any doc change so positions stay valid; compositionend dispatches a forced
+      // rebuild (below) to restore correct decorations once.
+      if (!forced && options.isComposing?.()) {
+        return tr.docChanged ? value.map(tr.changes) : value;
+      }
       const foldChanged = tr.effects.some((e) => e.is(foldEffect) || e.is(unfoldEffect));
       // A code grammar finished loading → rebuild so inactive code widgets re-render
       // with syntax colours (see codeHighlight.ensureLanguage).
       const grammarLoaded = tr.effects.some((e) => e.is(codeLangLoaded));
-      if (tr.docChanged || tr.selection || foldChanged || grammarLoaded) {
+      if (tr.docChanged || tr.selection || foldChanged || grammarLoaded || forced) {
         return buildDecorations(tr.state, options);
       }
       return value;

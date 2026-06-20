@@ -24,7 +24,7 @@ const codeFoldingExtension = codeFolding({
   },
 });
 import { liveEditorTheme, liveHighlighting } from "./liveEditor/theme";
-import { livePreview } from "./liveEditor/livePreview";
+import { livePreview, rebuildLivePreviewEffect } from "./liveEditor/livePreview";
 import type { CodeMetrics } from "./liveEditor/widgets";
 
 export interface LiveEditorProps {
@@ -212,6 +212,8 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
       activeLineInBlock: activeHighlightRef.current === "block-line",
       codeWrap: codeWrapRef.current,
       codeMetrics: codeMetricsRef.current,
+      // Freeze decoration rebuilds while an IME composition is in progress (see livePreview).
+      isComposing: () => viewRef.current?.composing ?? false,
     });
 
   // Re-measure code geometry and, if it changed, rebuild decorations so inactive
@@ -331,9 +333,18 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
         view.scrollDOM.scrollTop = pinTop;
       }
     };
+    // When an IME composition ends, rebuild decorations once for the just-composed text
+    // (rebuilds were deferred during composition — see livePreview's isComposing gate).
+    // Deferred a frame so CM6 applies the final composed-text transaction first.
+    const onCompositionEnd = () => {
+      requestAnimationFrame(() => {
+        viewRef.current?.dispatch({ effects: rebuildLivePreviewEffect.of(null) });
+      });
+    };
     view.contentDOM.addEventListener("mousedown", armSuppress, true);
     view.scrollDOM.addEventListener("keydown", endGuard, true);
     view.scrollDOM.addEventListener("scroll", onScroll, { passive: true });
+    view.contentDOM.addEventListener("compositionend", onCompositionEnd, true);
 
     // Measure code geometry once the view has laid out, then keep it current on resize
     // (window resize, sidebar/outline toggle, split-pane drag all change the wrap width).
@@ -355,6 +366,7 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
       view.contentDOM.removeEventListener("mousedown", armSuppress, true);
       view.scrollDOM.removeEventListener("keydown", endGuard, true);
       view.scrollDOM.removeEventListener("scroll", onScroll);
+      view.contentDOM.removeEventListener("compositionend", onCompositionEnd, true);
       window.clearTimeout(clearTimer);
       if (pinRaf) cancelAnimationFrame(pinRaf);
       view.destroy();
