@@ -2401,13 +2401,26 @@ fn toggle_autostart(app: &AppHandle) -> Result<AppConfig, Box<dyn Error>> {
     Ok(config)
 }
 
+/// On disable, a missing autostart entry (already off) surfaces as an OS
+/// "file not found" error. Treat that as already-off; surface every other error.
+#[cfg(desktop)]
+fn is_missing_autostart_entry_error<E: std::fmt::Display>(error: &E) -> bool {
+    let message = error.to_string().to_lowercase();
+    message.contains("os error 2")
+        || message.contains("cannot find the file specified")
+        || message.contains("no such file or directory")
+        || message.contains("系统找不到指定的文件")
+}
+
 #[cfg(desktop)]
 fn apply_autostart(app: &AppHandle, enabled: bool) -> Result<(), Box<dyn Error>> {
     let manager = app.autolaunch();
     if enabled {
         manager.enable()?;
-    } else {
-        manager.disable()?;
+    } else if let Err(error) = manager.disable() {
+        if !is_missing_autostart_entry_error(&error) {
+            return Err(Box::new(error));
+        }
     }
     Ok(())
 }
