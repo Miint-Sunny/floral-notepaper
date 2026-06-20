@@ -181,6 +181,24 @@ export function liveEditorTheme(fontSize: number) {
       margin: "0.4em auto",
       borderRadius: "4px",
     },
+    ".cm-md-html-block": {
+      margin: "0.4em 0",
+      overflowX: "auto",
+    },
+    ".cm-md-html-block table": {
+      borderCollapse: "collapse",
+    },
+    ".cm-md-html-block th, .cm-md-html-block td": {
+      border: "1px solid color-mix(in srgb, var(--color-paper-deep) 70%, transparent)",
+      padding: "0.3em 0.6em",
+    },
+    ".cm-md-html-block img": {
+      maxWidth: "100%",
+    },
+    ".cm-md-html-inline img": {
+      maxWidth: "100%",
+      verticalAlign: "middle",
+    },
     ".cm-md-bullet, .cm-md-bullet-raw": {
       display: "inline-block",
       width: "1.3em",

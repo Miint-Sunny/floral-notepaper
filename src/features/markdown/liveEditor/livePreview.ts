@@ -15,6 +15,8 @@ import {
   type CodeMetrics,
   CodeToolbarWidget,
   HorizontalRuleWidget,
+  HtmlBlockWidget,
+  HtmlInlineWidget,
   ImageWidget,
   TableWidget,
 } from "./widgets";
@@ -35,6 +37,8 @@ export interface LivePreviewOptions {
   codeMetrics?: CodeMetrics | null;
   /** Returns true while an IME composition is active; rebuilds are deferred until it ends. */
   isComposing?: () => boolean;
+  /** Render raw HTML (HTMLBlock/HTMLTag) as sanitized read-only widgets — default off (gated). */
+  renderHtml?: boolean;
 }
 
 /**
@@ -208,6 +212,36 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
               );
               return false;
             }
+          }
+          return undefined;
+        }
+
+        if (name === "HTMLBlock") {
+          const lineFrom = doc.lineAt(from).from;
+          const lineTo = doc.lineAt(to).to;
+          if (options.renderHtml && !isActive(lineFrom, lineTo)) {
+            const source = doc.sliceString(lineFrom, lineTo);
+            decorations.push(
+              Decoration.replace({
+                widget: new HtmlBlockWidget(source, lineFrom, options.resolveImageSrc),
+                block: true,
+              }).range(lineFrom, lineTo),
+            );
+          }
+          // Always claim the block (skip raw-HTML children); when not rendering (renderHtml off
+          // or cursor inside) no decoration is pushed → the source shows verbatim.
+          return false;
+        }
+
+        if (name === "HTMLTag") {
+          if (options.renderHtml && !isActive(from, to)) {
+            const source = doc.sliceString(from, to);
+            decorations.push(
+              Decoration.replace({
+                widget: new HtmlInlineWidget(source, options.resolveImageSrc),
+              }).range(from, to),
+            );
+            return false;
           }
           return undefined;
         }

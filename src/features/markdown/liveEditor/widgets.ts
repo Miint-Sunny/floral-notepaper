@@ -6,6 +6,7 @@ import {
   getLoadedLanguage,
   highlightCodeToLines,
 } from "./codeHighlight";
+import DOMPurify from "dompurify";
 
 const COPY_ICON =
   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
@@ -520,5 +521,144 @@ export class TableWidget extends WidgetType {
   }
   ignoreEvent() {
     return false;
+  }
+}
+
+// ===== Raw HTML rendering (HTMLBlock / HTMLTag) — read-only, swap-to-source. =====
+
+// Tags/attributes allowed when rendering raw HTML inside a live-preview widget: tables +
+// inline formatting + images. DOMPurify strips <script>, event handlers and javascript: URLs.
+const HTML_ALLOWED_TAGS = [
+  "table",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
+  "td",
+  "th",
+  "caption",
+  "colgroup",
+  "col",
+  "img",
+  "a",
+  "b",
+  "strong",
+  "i",
+  "em",
+  "u",
+  "s",
+  "del",
+  "ins",
+  "mark",
+  "sub",
+  "sup",
+  "br",
+  "span",
+  "div",
+  "p",
+  "code",
+  "pre",
+  "kbd",
+  "samp",
+  "small",
+  "abbr",
+  "center",
+  "ul",
+  "ol",
+  "li",
+  "hr",
+  "blockquote",
+  "details",
+  "summary",
+];
+const HTML_ALLOWED_ATTR = [
+  "href",
+  "title",
+  "src",
+  "alt",
+  "width",
+  "height",
+  "style",
+  "align",
+  "valign",
+  "colspan",
+  "rowspan",
+  "scope",
+  "class",
+  "target",
+  "rel",
+  "open",
+];
+
+/**
+ * Sanitizes a raw HTML fragment (DOMPurify) and resolves any `<img src>` through the same
+ * resolver markdown images use, so vault-local paths load. Returns a fragment ready to append.
+ */
+function renderHtmlFragment(
+  source: string,
+  resolveImageSrc: (src: string) => string,
+): DocumentFragment {
+  const frag = DOMPurify.sanitize(source, {
+    ALLOWED_TAGS: HTML_ALLOWED_TAGS,
+    ALLOWED_ATTR: HTML_ALLOWED_ATTR,
+    RETURN_DOM_FRAGMENT: true,
+  });
+  for (const img of frag.querySelectorAll("img")) {
+    const raw = img.getAttribute("src");
+    if (raw) img.setAttribute("src", resolveImageSrc(raw));
+    img.loading = "lazy";
+  }
+  return frag;
+}
+
+/** Read-only render of a block-level raw HTML node (`<table>`, `<div>`, …). Click → edit source. */
+export class HtmlBlockWidget extends WidgetType {
+  constructor(
+    readonly source: string,
+    readonly from: number,
+    readonly resolveImageSrc: (src: string) => string,
+  ) {
+    super();
+  }
+  eq(other: HtmlBlockWidget) {
+    return other.source === this.source && other.from === this.from;
+  }
+  toDOM(view: EditorView) {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-md-html-block";
+    wrap.appendChild(renderHtmlFragment(this.source, this.resolveImageSrc));
+    // Read-only: clicking anywhere drops the cursor into the raw HTML source (swap-to-source),
+    // mirroring TableWidget. No scrollIntoView — the block is already on-screen.
+    wrap.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      view.dispatch({ selection: { anchor: this.from } });
+      view.focus();
+    });
+    return wrap;
+  }
+  ignoreEvent() {
+    return false;
+  }
+}
+
+/** Read-only render of an inline raw HTML node (`<img>`, `<span>`, …). */
+export class HtmlInlineWidget extends WidgetType {
+  constructor(
+    readonly source: string,
+    readonly resolveImageSrc: (src: string) => string,
+  ) {
+    super();
+  }
+  eq(other: HtmlInlineWidget) {
+    return other.source === this.source;
+  }
+  toDOM() {
+    const span = document.createElement("span");
+    span.className = "cm-md-html-inline";
+    span.appendChild(renderHtmlFragment(this.source, this.resolveImageSrc));
+    return span;
+  }
+  ignoreEvent() {
+    return true;
   }
 }

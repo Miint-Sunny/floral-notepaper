@@ -40,6 +40,8 @@ export interface LiveEditorProps {
   activeHighlight?: "off" | "line" | "block" | "block-line";
   /** When false, fenced code blocks scroll horizontally instead of wrapping. */
   codeWrap?: boolean;
+  /** Render raw HTML (HTMLBlock/HTMLTag) as sanitized read-only widgets — default off. */
+  renderHtml?: boolean;
   /**
    * Identity of the document currently shown (e.g. note id / external file path).
    * Lets value-sync tell a *switch* (docKey changes → cursor may reset) apart from
@@ -133,6 +135,7 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
     showEditorLineNumbers = false,
     activeHighlight = "off",
     codeWrap = true,
+    renderHtml = false,
     docKey,
     onCursorLine,
     fullRenderMaxLines = 2000,
@@ -182,6 +185,8 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
   activeHighlightRef.current = activeHighlight;
   const codeWrapRef = useRef(codeWrap);
   codeWrapRef.current = codeWrap;
+  const renderHtmlRef = useRef(renderHtml);
+  renderHtmlRef.current = renderHtml;
   const fullRenderMaxLinesRef = useRef(fullRenderMaxLines);
   fullRenderMaxLinesRef.current = fullRenderMaxLines;
   const onSlowRenderRef = useRef(onSlowRender);
@@ -212,6 +217,7 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
       activeLineInBlock: activeHighlightRef.current === "block-line",
       codeWrap: codeWrapRef.current,
       codeMetrics: codeMetricsRef.current,
+      renderHtml: renderHtmlRef.current,
       // Freeze decoration rebuilds while an IME composition is in progress (see livePreview).
       isComposing: () => viewRef.current?.composing ?? false,
     });
@@ -451,7 +457,7 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
     });
     // makePreviewExtension reads the latest values via refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolveImageSrc, showCodeLineNumbers, activeHighlight, codeWrap]);
+  }, [resolveImageSrc, showCodeLineNumbers, activeHighlight, codeWrap, renderHtml]);
 
   // React to read-only changes.
   useEffect(() => {

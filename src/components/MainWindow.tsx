@@ -3607,6 +3607,7 @@ export function MainWindow({
                           }}
                           fontSize={settingsConfig?.fontSize ?? 14}
                           resolveImageSrc={resolveLiveImageSrc}
+                          renderHtml={settingsConfig?.renderHtmlMarkdown ?? false}
                           showCodeLineNumbers={settingsConfig?.codeBlockLineNumbers ?? false}
                           showEditorLineNumbers={settingsConfig?.editorLineNumbers ?? false}
                           activeHighlight={settingsConfig?.liveActiveHighlight ?? "off"}
