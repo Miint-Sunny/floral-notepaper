@@ -302,7 +302,7 @@
       "defaultView": "「ライブ」は本フォーク追加の単一ペイン WYSIWYG 編集",
       "splitScrollSync": "分割表示でエディターとプレビューのスクロールを同期",
       "renderHtmlMarkdown": "プレビュー/ライブで Markdown 内の HTML タグを描画",
-      "liveActiveHighlight": "ライブモードでカーソル行・ブロック、またはブロック内の現在行を強調",
+      "liveActiveHighlight": "ライブモードでカーソル行・ブロック、またはブロック内の現在行を強調。「行」はソース行全体（折り返した段落は1行扱い）",
       "codeBlockLineNumbers": "ライブモードでコードブロックに行番号を表示",
       "editorLineNumbers": "ライブモードで文書全体に行番号ガターを表示",
       "outlineFollow": "閲覧/編集中にアウトラインが現在の見出しを自動強調",

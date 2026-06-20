@@ -456,7 +456,7 @@
       "defaultView": "「即時」為本分支新增的單欄所見即所得編輯",
       "splitScrollSync": "分欄檢視左右編輯/預覽同步捲動",
       "renderHtmlMarkdown": "預覽/即時中渲染 Markdown 內嵌的 HTML 標籤",
-      "liveActiveHighlight": "即時模式下高亮游標所在行、整塊，或塊內再標出當前行",
+      "liveActiveHighlight": "即時模式下高亮游標所在行、整塊，或塊內再標出當前行。「行」指整條源碼行（長段落折行時為整段）",
       "codeBlockLineNumbers": "即時模式下程式碼區塊左側顯示行號",
       "editorLineNumbers": "即時模式下整篇文件左側的行號欄",
       "outlineFollow": "閱讀/編輯時大綱自動高亮目前所在標題",

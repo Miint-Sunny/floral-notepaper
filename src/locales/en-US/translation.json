@@ -475,7 +475,7 @@
       "defaultView": "\"Live\" is this fork's single-pane WYSIWYG editor",
       "splitScrollSync": "Sync scrolling between editor and preview in split view",
       "renderHtmlMarkdown": "Render HTML tags embedded in Markdown (preview/live)",
-      "liveActiveHighlight": "Highlights the cursor's line, block, or the current line within the block (Live)",
+      "liveActiveHighlight": "Highlights the cursor's line, block, or the current line within the block (Live). “Line” means the whole source line (a wrapped paragraph counts as one)",
       "codeBlockLineNumbers": "Shows line numbers beside code blocks in Live mode",
       "editorLineNumbers": "Whole-document line-number gutter in Live mode",
       "outlineFollow": "Outline auto-highlights the current heading as you read/edit",

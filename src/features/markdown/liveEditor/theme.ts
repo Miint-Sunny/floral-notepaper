@@ -52,13 +52,21 @@ export function liveEditorTheme(fontSize: number) {
       padding: "0 0.5em 0 0.6em",
       fontVariantNumeric: "tabular-nums",
     },
-    ".cm-activeLine, .cm-md-active-block": {
-      backgroundColor: "color-mix(in srgb, var(--color-bamboo) 8%, transparent)",
+    // “行”模式：活动【源码行】= 染色 + 行前竖线（inset 阴影画，不挤内容）。
+    // 注：高光的是整条源码行；中文长段=单源码行折行时即整段（非单视觉行，见设置说明）。
+    ".cm-activeLine": {
+      backgroundColor: "color-mix(in srgb, var(--color-bamboo) 12%, transparent)",
+      boxShadow: "inset 2px 0 0 var(--color-bamboo)",
     },
-    // “块+行”模式下块内当前行：比块底色(8%)略强但仍克制，避免遮蔽文字。
-    // 定义晚于 .cm-md-active-block，同优先级时此规则胜出。
+    // “块 / 块+行”模式：所在块整体淡染（覆盖整块、无竖线，浅一点让当前行更突出）。
+    ".cm-md-active-block": {
+      backgroundColor: "color-mix(in srgb, var(--color-bamboo) 6%, transparent)",
+    },
+    // “块+行”模式下块内当前源码行：更深 + 行前竖线。定义晚于 .cm-md-active-block，
+    // 当前行同时带两类时此规则的底色胜出。
     ".cm-md-active-block-line": {
-      backgroundColor: "color-mix(in srgb, var(--color-bamboo) 15%, transparent)",
+      backgroundColor: "color-mix(in srgb, var(--color-bamboo) 14%, transparent)",
+      boxShadow: "inset 2px 0 0 var(--color-bamboo)",
     },
 
     // --- Markdown live-preview element styling ---

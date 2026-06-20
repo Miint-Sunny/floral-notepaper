@@ -286,7 +286,8 @@ export function SettingsPanel({ config, onChange, onMigrateDataDir, onClose }: S
             />
             <FieldCaption>
               {t("settings.caption.liveActiveHighlight", {
-                defaultValue: "即时模式下高亮光标所在行或整块",
+                defaultValue:
+                  "即时模式下高亮光标所在行、整块，或块内再标出当前行。「行」指整条源码行（长段落折行时为整段）",
               })}
             </FieldCaption>
           </div>
