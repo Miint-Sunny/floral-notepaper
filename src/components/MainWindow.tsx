@@ -17,6 +17,7 @@ import { AboutPanel } from "./AboutPanel";
 import { exportMarkdownNote, importMarkdownNotes } from "../features/importExport/api";
 import type { LiveEditorHandle } from "../features/markdown/LiveEditor";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { resolveMarkdownImageSrc } from "../features/markdown/imageSrc";
 import { activeHeadingByLine, parseOutline, type OutlineItem } from "../features/markdown/outline";
 import { showToast } from "./Toast";
 import {
@@ -465,15 +466,6 @@ export function MainWindow({
   const externalFileMtimeRef = useRef<number>(0);
   const lastExternalSaveRef = useRef<number>(0);
   const imageBaseDir = useImageBaseDir();
-  const resolveLiveImageSrc = useCallback(
-    (src: string) => {
-      if (src.startsWith("images/") && imageBaseDir) {
-        return convertFileSrc(imageBaseDir + "/" + src);
-      }
-      return src;
-    },
-    [imageBaseDir],
-  );
   const saveStateRef = useRef(saveState);
   const isMacOS = useMemo(() => {
     return (
@@ -508,6 +500,19 @@ export function MainWindow({
   const selectedExternalFile = useMemo(
     () => externalFiles.find((f) => f.id === selectedId) ?? null,
     [externalFiles, selectedId],
+  );
+  // Folder of the current external note → lets relative image paths (and `images/…` next
+  // to the note) resolve against it; managed notes fall back to <dataDir>/images.
+  const imageNoteDir = useMemo(() => {
+    const p = selectedExternalFile?.filePath;
+    if (!p) return undefined;
+    const idx = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+    return idx > 0 ? p.slice(0, idx) : undefined;
+  }, [selectedExternalFile]);
+  const resolveLiveImageSrc = useCallback(
+    (src: string) =>
+      resolveMarkdownImageSrc(src, imageBaseDir ?? undefined, convertFileSrc, imageNoteDir),
+    [imageBaseDir, imageNoteDir],
   );
   const updateStatusHydratedRef = useRef(false);
 
@@ -3583,6 +3588,7 @@ export function MainWindow({
                             renderHtml={settingsConfig?.renderHtmlMarkdown ?? false}
                             codeWrap={settingsConfig?.codeWrap ?? true}
                             imageBaseDir={imageBaseDir ?? undefined}
+                            noteDir={imageNoteDir}
                           />
                         </Suspense>
                       </div>

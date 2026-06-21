@@ -168,6 +168,8 @@ interface MarkdownPreviewProps {
   /** When false, code blocks scroll horizontally instead of wrapping (default: wrap). */
   codeWrap?: boolean;
   imageBaseDir?: string;
+  /** Folder of the current external note, for resolving relative image paths. */
+  noteDir?: string;
 }
 
 const remarkPluginsBase = [remarkGfm, remarkAlerts];
@@ -385,13 +387,14 @@ function MarkdownPreviewImpl({
   renderHtml = false,
   codeWrap = true,
   imageBaseDir,
+  noteDir,
 }: MarkdownPreviewProps) {
   const { t } = useTranslation();
   const components = useMemo<Components>(
     () => ({
       ...staticComponents,
       img: ({ src, alt, ...props }) => {
-        const resolvedSrc = resolveMarkdownImageSrc(src, imageBaseDir, convertFileSrc);
+        const resolvedSrc = resolveMarkdownImageSrc(src, imageBaseDir, convertFileSrc, noteDir);
         return (
           <img
             src={resolvedSrc}
@@ -434,7 +437,7 @@ function MarkdownPreviewImpl({
         );
       },
     }),
-    [imageBaseDir, codeWrap],
+    [imageBaseDir, noteDir, codeWrap],
   );
 
   // 含公式时按需加载 katex；加载完成前公式以原始文本短暂呈现（见 loadKatex 注释）。

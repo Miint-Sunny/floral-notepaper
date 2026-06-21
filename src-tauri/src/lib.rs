@@ -435,6 +435,13 @@ pub fn run() {
                 let _ = scope.allow_directory(data.join("images"), true);
                 let _ = scope.allow_directory(data.join("backgrounds"), true);
             }
+            // Allow the user's home tree so notes can reference arbitrary local images
+            // (absolute paths, or images next to an external note — e.g. in iCloud Drive),
+            // Typora-style. Without this the asset protocol denies anything outside the data
+            // dir. Trade-off: the WebView can load any image under $HOME via asset://.
+            if let Ok(home) = app.path().home_dir() {
+                let _ = app.asset_protocol_scope().allow_directory(&home, true);
+            }
             let updater_state = updater::UpdaterState::new(app.package_info().version.to_string());
             if let Err(error) = updater_state.initialize() {
                 eprintln!("failed to initialize updater infrastructure: {error}");
