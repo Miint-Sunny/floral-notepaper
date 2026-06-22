@@ -69,6 +69,14 @@ const BLOCK_NAMES = new Set([
   "Table",
   "HorizontalRule",
 ]);
+// A standalone `<img>` tag renders even when `renderHtml` is off: a DOMPurify-sanitized image is
+// no more dangerous than a markdown image, and users expect `<img>` to show. All other raw HTML
+// stays gated behind the renderHtml setting. (resolveImageSrc still applies, so local / relative
+// `<img src>` resolve exactly like markdown images.)
+const IMG_ONLY_HTML_RE = /^<img\b[^>]*>$/i;
+function isImageOnlyHtml(src: string): boolean {
+  return IMG_ONLY_HTML_RE.test(src.trim());
+}
 const hideMark = Decoration.replace({});
 const strong = Decoration.mark({ class: "cm-md-strong" });
 const em = Decoration.mark({ class: "cm-md-em" });
@@ -219,8 +227,9 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
         if (name === "HTMLBlock") {
           const lineFrom = doc.lineAt(from).from;
           const lineTo = doc.lineAt(to).to;
-          if (options.renderHtml && !isActive(lineFrom, lineTo)) {
-            const source = doc.sliceString(lineFrom, lineTo);
+          const source = doc.sliceString(lineFrom, lineTo);
+          // Render when HTML rendering is on, OR the block is just an <img> (narrow-allow).
+          if ((options.renderHtml || isImageOnlyHtml(source)) && !isActive(lineFrom, lineTo)) {
             decorations.push(
               Decoration.replace({
                 widget: new HtmlBlockWidget(source, lineFrom, options.resolveImageSrc),
@@ -234,8 +243,9 @@ function buildDecorations(state: EditorState, options: LivePreviewOptions): Deco
         }
 
         if (name === "HTMLTag") {
-          if (options.renderHtml && !isActive(from, to)) {
-            const source = doc.sliceString(from, to);
+          const source = doc.sliceString(from, to);
+          // Render when HTML rendering is on, OR the tag is just an <img> (narrow-allow).
+          if ((options.renderHtml || isImageOnlyHtml(source)) && !isActive(from, to)) {
             decorations.push(
               Decoration.replace({
                 widget: new HtmlInlineWidget(source, options.resolveImageSrc),
