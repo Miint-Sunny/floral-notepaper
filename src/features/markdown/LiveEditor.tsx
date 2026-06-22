@@ -7,7 +7,14 @@ import {
   lineNumbers,
   placeholder as cmPlaceholder,
 } from "@codemirror/view";
-import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
+import {
+  history,
+  historyKeymap,
+  defaultKeymap,
+  indentWithTab,
+  undo as cmUndo,
+  redo as cmRedo,
+} from "@codemirror/commands";
 import { markdown, markdownLanguage, markdownKeymap } from "@codemirror/lang-markdown";
 import { codeFolding } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
@@ -26,6 +33,7 @@ const codeFoldingExtension = codeFolding({
 import { liveEditorTheme, liveHighlighting } from "./liveEditor/theme";
 import { livePreview, rebuildLivePreviewEffect } from "./liveEditor/livePreview";
 import type { CodeMetrics } from "./liveEditor/widgets";
+import { getImageFiles } from "../images/useImagePaste";
 
 export interface LiveEditorProps {
   value: string;
@@ -35,6 +43,12 @@ export interface LiveEditorProps {
   readOnly?: boolean;
   autoFocus?: boolean;
   resolveImageSrc?: (src: string) => string;
+  /**
+   * Saves pasted/dropped image files to the note's store and returns the markdown to insert
+   * (`![](images/…)`), or `""` if nothing was saved. When provided, the live editor accepts
+   * image paste/drop (parity with edit mode, which only the `<textarea>` had).
+   */
+  saveImageFiles?: (files: File[]) => Promise<string>;
   showCodeLineNumbers?: boolean;
   showEditorLineNumbers?: boolean;
   activeHighlight?: "off" | "line" | "block" | "block-line";
@@ -67,6 +81,10 @@ export interface LiveEditorHandle {
   scrollToLine: (line: number) => void;
   /** The main cursor's current 0-based line. */
   getCursorLine: () => number;
+  /** Undo via CodeMirror's own history (the textarea's execCommand can't reach it). */
+  undo: () => boolean;
+  /** Redo via CodeMirror's own history. */
+  redo: () => boolean;
 }
 
 const identity = (src: string) => src;
@@ -122,6 +140,19 @@ function measureCodeMetrics(view: EditorView, showLineNumbers: boolean): CodeMet
   return { lineHeight, charWidth, contentWidth };
 }
 
+// Insert image markdown at `pos`, putting it on its own line (mirrors the textarea path's
+// leading-newline rule). Tagged as a normal user edit so onChange fires → the note is marked
+// dirty and the new `![]()` renders via the live image widget.
+function insertImageMarkdown(view: EditorView, markdown: string, pos: number): void {
+  const doc = view.state.doc;
+  const at = Math.min(Math.max(pos, 0), doc.length);
+  const before = at > 0 ? doc.sliceString(at - 1, at) : "";
+  const lead = at > 0 && before !== "\n" ? "\n" : "";
+  const text = lead + markdown + "\n";
+  view.dispatch({ changes: { from: at, insert: text }, selection: { anchor: at + text.length } });
+  view.focus();
+}
+
 export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function LiveEditor(
   {
     value,
@@ -131,6 +162,7 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
     readOnly = false,
     autoFocus = false,
     resolveImageSrc = identity,
+    saveImageFiles,
     showCodeLineNumbers = false,
     showEditorLineNumbers = false,
     activeHighlight = "off",
@@ -163,6 +195,20 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
         if (!view) return 0;
         return view.state.doc.lineAt(view.state.selection.main.head).number - 1;
       },
+      undo() {
+        const view = viewRef.current;
+        if (!view) return false;
+        const did = cmUndo(view);
+        if (did) view.focus(); // dispatched change flows through onChange (setContent + markDirty)
+        return did;
+      },
+      redo() {
+        const view = viewRef.current;
+        if (!view) return false;
+        const did = cmRedo(view);
+        if (did) view.focus();
+        return did;
+      },
     }),
     [],
   );
@@ -179,6 +225,8 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
   onCursorLineRef.current = onCursorLine;
   const resolveImageSrcRef = useRef(resolveImageSrc);
   resolveImageSrcRef.current = resolveImageSrc;
+  const saveImageFilesRef = useRef(saveImageFiles);
+  saveImageFilesRef.current = saveImageFiles;
   const showCodeLineNumbersRef = useRef(showCodeLineNumbers);
   showCodeLineNumbersRef.current = showCodeLineNumbers;
   const activeHighlightRef = useRef(activeHighlight);
@@ -261,6 +309,49 @@ export const LiveEditor = forwardRef<LiveEditorHandle, LiveEditorProps>(function
           EditorView.lineWrapping,
           markdown({ base: markdownLanguage, codeLanguages: languages }),
           codeFoldingExtension,
+          // Image paste/drop (parity with edit mode). Only claims the event when image files are
+          // present — normal text paste/drop and DnD fall through to CodeMirror untouched. The save
+          // is async (writes to the note's images/ store), so we capture the insertion position up
+          // front and insert when it resolves.
+          EditorView.domEventHandlers({
+            paste(event, view) {
+              const save = saveImageFilesRef.current;
+              if (!save || !event.clipboardData) return false;
+              const files = getImageFiles(event.clipboardData);
+              if (files.length === 0) return false;
+              event.preventDefault();
+              const at = view.state.selection.main.head;
+              void save(files).then((md) => {
+                if (md) insertImageMarkdown(view, md, at);
+              });
+              return true;
+            },
+            drop(event, view) {
+              const save = saveImageFilesRef.current;
+              if (!save || !event.dataTransfer) return false;
+              const files = getImageFiles(event.dataTransfer);
+              if (files.length === 0) return false;
+              event.preventDefault();
+              const at =
+                view.posAtCoords({ x: event.clientX, y: event.clientY }) ??
+                view.state.selection.main.head;
+              void save(files).then((md) => {
+                if (md) insertImageMarkdown(view, md, at);
+              });
+              return true;
+            },
+            dragover(event) {
+              const dt = event.dataTransfer;
+              if (!saveImageFilesRef.current || !dt) return false;
+              const hasImage = Array.from(dt.items).some(
+                (it) => it.kind === "file" && it.type.startsWith("image/"),
+              );
+              if (!hasImage) return false;
+              event.preventDefault();
+              dt.dropEffect = "copy";
+              return true;
+            },
+          }),
           liveHighlighting,
           themeCompartment.current.of(liveEditorTheme(fontSize)),
           previewCompartment.current.of(makePreviewExtension()),

@@ -85,6 +85,61 @@ export function getImageFiles(dataTransfer: DataTransfer): File[] {
   return files;
 }
 
+interface UseImageFileSaverOptions {
+  noteId: string | null;
+  onEnsureNoteSaved: () => Promise<string | null>;
+  disabled?: boolean;
+  onError?: (message: string) => void;
+  t?: TFunction;
+}
+
+/**
+ * Surface-agnostic image saver: saves the given image files to the note's `images/` store and
+ * returns the markdown to insert (`![](images/…)` lines, joined by newlines), or `""` if nothing
+ * was saved. Unlike `useImagePaste` (which is bound to a `<textarea>` and inserts via
+ * `execCommand`), this leaves insertion to the caller — used by the CodeMirror live editor, which
+ * inserts through a `dispatch`. Reuses the same save pipeline so behaviour matches edit mode.
+ */
+export function useImageFileSaver({
+  noteId,
+  onEnsureNoteSaved,
+  disabled,
+  onError,
+  t,
+}: UseImageFileSaverOptions) {
+  const processingRef = useRef(false);
+
+  return useCallback(
+    async (files: File[]): Promise<string> => {
+      if (disabled || processingRef.current || files.length === 0) return "";
+      processingRef.current = true;
+      try {
+        let resolvedId = noteId;
+        if (!resolvedId) {
+          resolvedId = await onEnsureNoteSaved();
+          if (!resolvedId) return "";
+        }
+        const markdownLines: string[] = [];
+        for (const file of files) {
+          const relativePath = await processImageFile(file, resolvedId, t);
+          if (relativePath) markdownLines.push(`![](${relativePath})`);
+        }
+        return markdownLines.join("\n");
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : (t?.("errors.imagePasteFailed", { defaultValue: "图片粘贴失败" }) ?? "图片粘贴失败");
+        onError?.(message);
+        return "";
+      } finally {
+        processingRef.current = false;
+      }
+    },
+    [noteId, onEnsureNoteSaved, disabled, onError, t],
+  );
+}
+
 export function useImagePaste({
   noteId,
   textareaRef,

@@ -73,7 +73,11 @@ import {
   insertMarkdownAtSelection,
   markdownImageText,
 } from "../features/images/insertImage";
-import { useImagePaste, insertTextAtCursor } from "../features/images/useImagePaste";
+import {
+  useImagePaste,
+  useImageFileSaver,
+  insertTextAtCursor,
+} from "../features/images/useImagePaste";
 import { useImageBaseDir } from "../features/images/useImageBaseDir";
 import type { ExternalFile, Note, NoteMetadata } from "../features/notes/types";
 import {
@@ -1880,6 +1884,16 @@ export function MainWindow({
     t,
   });
 
+  // Image paste/drop for the live (CodeMirror) editor — same save pipeline as the textarea,
+  // but insertion happens via the editor's dispatch (see LiveEditor.saveImageFiles).
+  const saveLiveImageFiles = useImageFileSaver({
+    noteId: selectedId,
+    onEnsureNoteSaved: ensureNoteSaved,
+    disabled: isExternal,
+    onError: showToast,
+    t,
+  });
+
   const handleInsertLocalImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -1940,6 +1954,12 @@ export function MainWindow({
 
   const handleUndo = () => {
     if (!selectedId) return;
+    // Live mode has no textarea — route to CodeMirror's own history (its dispatch flows
+    // through onChange → setContent + markDirty, so no manual state sync needed here).
+    if (viewMode === "live") {
+      liveEditorRef.current?.undo();
+      return;
+    }
     const textarea = contentRef.current;
     if (runEditorCommand(textarea, "undo")) {
       setContent(textarea?.value ?? content);
@@ -1949,6 +1969,10 @@ export function MainWindow({
 
   const handleRedo = () => {
     if (!selectedId) return;
+    if (viewMode === "live") {
+      liveEditorRef.current?.redo();
+      return;
+    }
     const textarea = contentRef.current;
     if (runEditorCommand(textarea, "redo")) {
       setContent(textarea?.value ?? content);
@@ -3613,6 +3637,7 @@ export function MainWindow({
                           }}
                           fontSize={settingsConfig?.fontSize ?? 14}
                           resolveImageSrc={resolveLiveImageSrc}
+                          saveImageFiles={isExternal ? undefined : saveLiveImageFiles}
                           renderHtml={settingsConfig?.renderHtmlMarkdown ?? false}
                           showCodeLineNumbers={settingsConfig?.codeBlockLineNumbers ?? false}
                           showEditorLineNumbers={settingsConfig?.editorLineNumbers ?? false}
